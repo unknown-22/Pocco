@@ -1,4 +1,4 @@
-import type { DecorTarget, GameId, Pet, RoomState, TimelineEvent, WearSlot } from "@pocco/sim";
+import type { Ceremony, DecorTarget, GameId, Pet, RoomState, Selfie, TimelineEvent, WearSlot } from "@pocco/sim";
 
 export interface InventoryItem {
   itemId: string;
@@ -22,6 +22,10 @@ export interface GameState {
   debug: boolean;
   reaction?: Reaction;
   pendingFarewell: PendingFarewell | null;
+  /** 写真にするのを待っている自撮り */
+  pendingSelfies: (Selfie & { petId: string })[];
+  /** まだ見ていない節目（孵化・進化・シニア）。古いものから 1 つずつ */
+  pendingCeremony: Ceremony | null;
 }
 
 export interface PendingFarewell {
@@ -64,6 +68,7 @@ export type Action =
   | { type: "talk"; idle?: boolean }
   | { type: "lights"; on: boolean }
   | { type: "farewell_seen"; petId: string }
+  | { type: "ceremony_seen"; at: number }
   | { type: "equip"; slot: WearSlot; itemId: string | null }
   | { type: "decorate"; target: DecorTarget; itemId: string | null }
   | { type: "play"; game: GameId; score: number; success: boolean };

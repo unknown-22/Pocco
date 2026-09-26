@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import type { Pet } from "@pocco/sim";
 import { drawPet } from "../render/pet.ts";
-import { drawSprite } from "../render/sprites.ts";
+import { drawSprite } from "../render/sprite.ts";
 import { petPalette } from "../render/palette.ts";
 import { RHYTHM, judgeTap, rhythmBeats, rhythmScore, type Grade } from "./logic.ts";
-import { NOTE_SPRITE } from "./sprites.ts";
+import { NOTE_SPRITE } from "../render/assets/index.ts";
 import { GameHud } from "./CatchGame.tsx";
 import { useGameCanvas } from "./useGameCanvas.ts";
 
@@ -50,7 +50,7 @@ export function RhythmGame({ pet, speed, steady, onFinish }: { pet: Pet; speed: 
       });
       // 拍に合わせて体をゆらす
       const onBeat = beats.some((b) => Math.abs(t - b) < 90);
-      drawPet(ctx, { speciesId: pet.state.speciesId, stage: pet.state.stage, equipped: pet.state.equipped, eyesClosed: onBeat }, 22, 108 - (onBeat ? 2 : 0), p);
+      drawPet(ctx, { speciesId: pet.state.speciesId, stage: pet.state.stage, equipped: pet.state.equipped, pose: onBeat ? "play" : "idle", t: onBeat ? 200 : t }, 22, 108, p);
 
       // 叩かれずに通りすぎた拍は miss
       beats.forEach((b, i) => {

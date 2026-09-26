@@ -367,24 +367,6 @@ button { font: inherit; color: inherit; }
 .farewell.is-dim { background: rgba(40, 32, 60, 0.9); }
 .farewell.is-dark { background: rgba(10, 8, 24, 0.95); }
 .farewell.is-black { background: #000; cursor: pointer; }
-.farewell-pet { transition: opacity 3s ease, transform 3s ease; }
-.farewell-pet.is-gone { opacity: 0; transform: translateY(-10px) scale(0.9); }
-.farewell-light {
-  position: absolute;
-  left: 50%;
-  top: 45%;
-  width: 6px;
-  height: 6px;
-  margin-left: -3px;
-  background: #fff4b8;
-  box-shadow: 0 0 12px 4px rgba(255, 244, 184, 0.7);
-  animation: farewell-rise 4s ease-in forwards;
-}
-@keyframes farewell-rise {
-  0% { opacity: 0; transform: translate(0, 0); }
-  20% { opacity: 1; }
-  100% { opacity: 0; transform: translate(40px, -260px); }
-}
 .farewell-lines { min-height: 110px; text-align: center; font-size: 18px; line-height: 1.8; }
 .farewell-line { margin: 0; animation: fade-in 1.2s ease; }
 @keyframes fade-in { from { opacity: 0; } }
@@ -508,3 +490,33 @@ button { font: inherit; color: inherit; }
 .game-result { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 40px 16px; text-align: center; }
 .game-result-title { font-size: 26px; margin: 0; }
 .game-result-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
+
+/* 持ち物のドット絵アイコン */
+.item-icon { display: inline-flex; align-items: center; justify-content: center; flex: none; font-size: 26px; line-height: 1; }
+.item-icon canvas { image-rendering: pixelated; display: block; }
+.item-icon.is-inline { vertical-align: middle; font-size: 1em; }
+
+/* 孵化・進化・シニアの全画面の演出 */
+.ceremony {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 24px 16px;
+  background: rgba(40, 32, 60, 0.96);
+  color: #fdfaf4;
+  cursor: pointer;
+  animation: ceremony-in 0.4s ease;
+}
+.ceremony-stage { image-rendering: pixelated; border-radius: 16px; max-width: 100%; }
+.ceremony-text { text-align: center; line-height: 1.8; min-height: 120px; opacity: 0; transform: translateY(6px); transition: opacity 0.6s ease, transform 0.6s ease; }
+.ceremony-text.is-shown { opacity: 1; transform: none; }
+.ceremony-head { font-size: 22px; }
+.ceremony-sub { font-size: 13px; opacity: 0.8; }
+.ceremony-tap { font-size: 12px; opacity: 0.6; margin-top: 8px; }
+@keyframes ceremony-in { from { opacity: 0; } to { opacity: 1; } }
+.farewell-scene { image-rendering: pixelated; border-radius: 12px; display: block; }

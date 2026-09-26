@@ -74,6 +74,10 @@ const T: Record<string, Variant[]> = {
     { when: (c) => c.lonely, texts: ["「まだかなあ」とつぶやいていた。"] },
     { texts: ["鼻歌をうたっていた。", "「ふふっ」とひとりで笑っていた。", "「きょうは なんようび？」とつぶやいていた。"] },
   ],
+  selfie: [
+    { when: (c) => Boolean(c.state.equipped.hat || c.state.equipped.clothes), texts: ["おしゃれした姿を、カメラで自撮りしていた。", "鏡の前でポーズをとって、パシャリ。"] },
+    { texts: ["カメラを見つけて、自撮りしていた。", "こっそりカメラで自撮りしていた。", "「はい、チーズ」と自撮りしていた。"] },
+  ],
   hatch: [{ texts: ["たまごがかえった！"] }],
   stage_senior: [{ texts: ["シニアになった。少し白いものがまじってきた。"] }],
 };

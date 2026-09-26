@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { api, type Action, type GameState, type TimelineEntry } from "./api.ts";
+import type { PoseName } from "./render/assets/index.ts";
 
 export type Tab = "home" | "diary" | "items" | "collection" | "settings";
 
@@ -12,6 +13,9 @@ interface Store {
   timeline: { entries: TimelineEntry[]; hasMore: boolean; loading: boolean };
   /** ペットの吹き出し。id は表示を切り替えるための連番 */
   bubble: { text: string; id: number } | null;
+  /** ペットの反応の動き（喜ぶ・怒る）。id は同じ動きをくり返すための連番 */
+  mood: { pose: PoseName; id: number } | null;
+  setMood: (pose: PoseName) => void;
   sheet: "food" | "status" | null;
   setSheet: (sheet: Store["sheet"]) => void;
   /** 画面下に一瞬出す知らせ */
@@ -30,6 +34,9 @@ export const useStore = create<Store>((set, get) => {
   const apply = (game: GameState) => {
     set({ game, clockOffset: game.serverNow - Date.now(), error: null });
     if (game.reaction?.bubble) set({ bubble: { text: game.reaction.bubble, id: ++bubbleId } });
+    // 大好きな食べ物・気に入った服・ミニゲームの成功で喜び、苦手なもので怒る
+    if (game.reaction?.reaction === "love") set({ mood: { pose: "happy", id: ++bubbleId } });
+    if (game.reaction?.reaction === "dislike") set({ mood: { pose: "angry", id: ++bubbleId } });
     return game;
   };
   const fail = (e: unknown) => {
@@ -44,6 +51,8 @@ export const useStore = create<Store>((set, get) => {
     tab: "home",
     timeline: { entries: [], hasMore: false, loading: false },
     bubble: null,
+    mood: null,
+    setMood: (pose) => set({ mood: { pose, id: ++bubbleId } }),
     sheet: null,
     toast: null,
     showToast: (text) => {

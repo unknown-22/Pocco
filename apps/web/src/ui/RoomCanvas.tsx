@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { getSpecies, localHour, type Pet, type RoomState } from "@pocco/sim";
 import { paletteFor, withSpecies } from "../render/palette.ts";
 import { drawRoom, FLOOR_Y, ROOM_SIZE, SLOT_POS } from "../render/room.ts";
-import { EGG, KEEPSAKE, LITTER, NOTE, ZZZ, drawSprite } from "../render/sprites.ts";
-import { drawPet } from "../render/pet.ts";
-import { FURNITURE_SPRITES } from "../render/decor.ts";
+import { drawSprite } from "../render/sprite.ts";
+import { drawPet, poseBlinks } from "../render/pet.ts";
+import type { PoseName } from "../render/assets/index.ts";
+import { EGG, FURNITURE_SPRITES, KEEPSAKE, LITTER, NOTE, ZZZ } from "../render/assets/index.ts";
 import { setRoomCanvas } from "../photo.ts";
 import { dayPeriod } from "../time.ts";
 import { serverNow } from "../store.ts";
@@ -14,6 +15,8 @@ interface Props {
   room: RoomState;
   timezone: string;
   bubble: { text: string; id: number } | null;
+  /** 喜ぶ・怒るなどの反応。id が変わるたびに少しのあいだその動きをする */
+  mood: { pose: PoseName; id: number } | null;
   onTapPet: () => void;
   onTapLitter: (id: string) => void;
 }
@@ -33,7 +36,10 @@ const ROAM: Record<string, [number, number]> = {
  * 部屋とペットを描く。サーバーの状態（行動・散らかり・種族）をもとに、
  * 歩く・まばたきなどの細かい動きはクライアント側の演出で付ける（仕様書 4.3）。
  */
-export function RoomCanvas({ pet, room, timezone, bubble, onTapPet, onTapLitter }: Props) {
+/** 反応の動きを続ける長さ */
+const MOOD_MS = 2400;
+
+export function RoomCanvas({ pet, room, timezone, bubble, mood: moodProp, onTapPet, onTapLitter }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const bubbleRef = useRef<HTMLDivElement>(null);
@@ -42,6 +48,8 @@ export function RoomCanvas({ pet, room, timezone, bubble, onTapPet, onTapLitter 
   /** ペットの当たり判定（部屋の座標） */
   const petBox = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
   const [visibleBubble, setVisibleBubble] = useState<Props["bubble"]>(null);
+  /** いまの反応（描画ループから読むので ref） */
+  const mood = useRef<{ pose: PoseName; until: number } | null>(null);
 
   const stage = pet.state.stage;
   const activity = pet.state.activity;
@@ -58,6 +66,10 @@ export function RoomCanvas({ pet, room, timezone, bubble, onTapPet, onTapLitter 
     const id = setTimeout(() => setVisibleBubble((b) => (b?.id === bubble.id ? null : b)), BUBBLE_MS);
     return () => clearTimeout(id);
   }, [bubble]);
+
+  useEffect(() => {
+    if (moodProp) mood.current = { pose: moodProp.pose, until: performance.now() + MOOD_MS };
+  }, [moodProp]);
 
   // 画面幅に収まる最大の整数倍で拡大する
   useEffect(() => {
@@ -152,18 +164,18 @@ export function RoomCanvas({ pet, room, timezone, bubble, onTapPet, onTapLitter 
         if (walking) x += Math.sign(dx) * Math.min(Math.abs(dx), speed * dt);
         petX.current = x;
 
-        // 見た目
-        let bob = 0;
-        if (walking) bob = Math.floor(t / 250) % 2 ? -1 : 0;
-        if (type === "play" && Math.floor(t / 400) % 3 === 0) bob = -3;
-        if (type === "eat" || type === "hobby") bob = Math.floor(t / 300) % 2 ? -1 : 0;
-        const eyesClosed = asleep || t % 4000 < 150;
-        const bottom = (onBed ? FLOOR_Y + 5 : FLOOR_Y + 22) + bob + (asleep ? 1 : 0);
+        // 見た目（動きは assets/pet/poses/ のコマ）
+        const moodPose = mood.current && t < mood.current.until ? mood.current.pose : null;
+        const pose: PoseName = asleep
+          ? "sleep"
+          : moodPose ?? (type === "play" ? "play" : walking ? "walk" : type === "eat" ? "eat" : "idle");
+        const eyesClosed = !asleep && poseBlinks(pose) && t % 4000 < 150;
+        const bottom = (onBed ? FLOOR_Y + 5 : FLOOR_Y + 22) + (asleep ? 1 : 0);
         if (!onBed) {
           ctx.fillStyle = p.shadow;
           ctx.fillRect(Math.round(x) - 6, FLOOR_Y + 21, 12, 2);
         }
-        const box = drawPet(ctx, { speciesId, stage, equipped, eyesClosed }, x, bottom, p);
+        const box = drawPet(ctx, { speciesId, stage, equipped, eyesClosed, pose, t }, x, bottom, p);
         petBox.current = box;
         const px = box.x;
         const w = box.w;

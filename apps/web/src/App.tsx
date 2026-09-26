@@ -10,6 +10,8 @@ import { FoodSheet } from "./ui/FoodSheet.tsx";
 import { StatusSheet } from "./ui/StatusSheet.tsx";
 import { CollectionTab } from "./ui/CollectionTab.tsx";
 import { Farewell } from "./ui/Farewell.tsx";
+import { useSelfies } from "./ui/useSelfies.ts";
+import { Ceremony } from "./ui/Ceremony.tsx";
 
 const POLL_MS = 30_000;
 
@@ -20,6 +22,7 @@ export function App() {
   const refresh = useStore((s) => s.refresh);
   const sheet = useStore((s) => s.sheet);
   const toast = useStore((s) => s.toast);
+  useSelfies();
 
   // 定期的に、また画面に戻ってきたときに最新の状態を取る（仕様書 4.3）
   useEffect(() => {
@@ -55,7 +58,11 @@ export function App() {
             <TabBar />
             {sheet === "food" && <FoodSheet />}
             {sheet === "status" && <StatusSheet />}
-            {game.pendingFarewell && <Farewell key={game.pendingFarewell.petId} farewell={game.pendingFarewell} />}
+            {game.pendingFarewell ? (
+              <Farewell key={game.pendingFarewell.petId} farewell={game.pendingFarewell} />
+            ) : (
+              game.pendingCeremony && <Ceremony key={game.pendingCeremony.at} ceremony={game.pendingCeremony} name={pet.name} />
+            )}
           </>
         )}
       </div>

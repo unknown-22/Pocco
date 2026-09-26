@@ -85,6 +85,32 @@ export interface PetState {
   inheritedHobbies: string[];
   /** 旅立ったときの記録 */
   farewell?: Farewell;
+  /** 留守中に自撮りした場面。次に開いたときに画面側で写真にする（仕様書 10.10） */
+  selfies: Selfie[];
+  /** まだ見ていない節目（孵化・進化・シニア）。画面が全画面の演出で見せる（仕様書 11.2） */
+  ceremonies: Ceremony[];
+}
+
+export interface Ceremony {
+  kind: "hatch" | "evolve" | "senior";
+  at: number;
+  /** 新しい段階 */
+  stage: Stage;
+  /** 前の種族（孵化はたまご） */
+  fromSpecies: string;
+  /** 前の段階 */
+  fromStage: Stage;
+  toSpecies: string;
+}
+
+/** 自撮りしたときの姿（写真を描くのに使う） */
+export interface Selfie {
+  at: number;
+  stage: Stage;
+  speciesId: string;
+  equipped: Equipped;
+  /** 日記と同じ文。写真のキャプションになる */
+  text: string;
 }
 
 export interface DailyLog {

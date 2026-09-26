@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import type { Pet } from "@pocco/sim";
-import { drawSprite } from "../render/sprites.ts";
+import { drawSprite } from "../render/sprite.ts";
 import { drawPet } from "../render/pet.ts";
 import { petPalette } from "../render/palette.ts";
 import { CATCH, caught, catchSpawns, itemY, type FallingItem } from "./logic.ts";
-import { PAPER, SNACK } from "./sprites.ts";
+import { PAPER, SNACK } from "../render/assets/index.ts";
 import { useGameCanvas } from "./useGameCanvas.ts";
 
 /** キャッチ: 落ちてくるおやつを、左右に動いて受けとめる */
@@ -56,7 +56,8 @@ export function CatchGame({ pet, speed, onFinish }: { pet: Pet; speed: number; o
         }
         drawItem(ctx, it, y, p);
       }
-      drawPet(ctx, { speciesId: pet.state.speciesId, stage: pet.state.stage, equipped: pet.state.equipped }, x, 117, p);
+      const moving = Math.abs(dx) > 0.5;
+      drawPet(ctx, { speciesId: pet.state.speciesId, stage: pet.state.stage, equipped: pet.state.equipped, pose: moving ? "walk" : "idle", t }, x, 117, p);
 
       setLeft(Math.max(0, CATCH.durationMs - t));
       if (t >= CATCH.durationMs) {

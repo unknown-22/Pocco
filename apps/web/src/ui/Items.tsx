@@ -14,6 +14,8 @@ import {
 } from "@pocco/sim";
 import { useStore } from "../store.ts";
 import { Sheet } from "./Sheet.tsx";
+import { ItemIcon } from "./ItemIcon.tsx";
+import type { IconKind } from "../render/icons.ts";
 
 type Category = "food" | "wear" | "room" | "treasure";
 
@@ -51,7 +53,7 @@ export function Items() {
           empty="なにも持っていません。食べ物は 1 日 1 回のおすそわけで届きます"
           items={owned("food").flatMap((i) => {
             const f = getFood(i.itemId);
-            return f ? [{ id: f.id, icon: f.icon, name: f.name, sub: `×${i.count}` }] : [];
+            return f ? [{ id: f.id, icon: { kind: "food" as const, fallback: f.icon }, name: f.name, sub: `×${i.count}` }] : [];
           })}
         />
       )}
@@ -68,7 +70,7 @@ export function Items() {
               return [
                 {
                   id: w.id,
-                  icon: w.icon,
+                  icon: { kind: "wear" as const, fallback: w.icon },
                   name: w.name,
                   sub: WEAR_SLOT_LABEL[w.slot],
                   badge: on ? "そうび中" : undefined,
@@ -110,7 +112,7 @@ export function Items() {
               const placedAt = Object.entries(room.furniture).find(([, id]) => id === f.id)?.[0];
               return {
                 id: f.id,
-                icon: f.icon,
+                icon: { kind: "furniture" as const, fallback: f.icon },
                 name: f.name,
                 sub: f.kind === "wall" ? "かべ" : "ゆか",
                 badge: placedAt ? "おいてある" : undefined,
@@ -126,7 +128,7 @@ export function Items() {
           empty="まだ何も拾っていません。留守のあいだに散歩に出かけることがあります"
           items={owned("treasure").flatMap((i) => {
             const t = getTreasure(i.itemId);
-            return t ? [{ id: t.id, icon: t.icon, name: t.name, sub: `×${i.count}`, rare: t.rarity === "rare" }] : [];
+            return t ? [{ id: t.id, icon: { kind: "treasure" as const, fallback: t.icon }, name: t.name, sub: `×${i.count}`, rare: t.rarity === "rare" }] : [];
           })}
         />
       )}
@@ -148,7 +150,15 @@ export function Items() {
                 >
                   <span className="pixel">{slot.label}</span>
                   <span className="muted">
-                    {here ? "ここにある → しまう" : current ? `${current.icon} ${current.name} と入れかえ` : "あいている"}
+                    {here ? (
+                      "ここにある → しまう"
+                    ) : current ? (
+                      <>
+                        <ItemIcon kind="furniture" id={current.id} size={16} fallback={current.icon} inline /> {current.name} と入れかえ
+                      </>
+                    ) : (
+                      "あいている"
+                    )}
                   </span>
                 </button>
               );
@@ -163,7 +173,7 @@ export function Items() {
 interface GridItem {
   id: string;
   name: string;
-  icon?: string;
+  icon?: { kind: IconKind; fallback: string };
   swatch?: [string, string];
   sub?: string;
   badge?: string;
@@ -178,7 +188,7 @@ function Grid({ items, empty }: { items: GridItem[]; empty?: string }) {
       {items.map((it) => {
         const content = (
           <>
-            {it.icon && <span className="food-icon" aria-hidden>{it.icon}</span>}
+            {it.icon && <ItemIcon kind={it.icon.kind} id={it.id} fallback={it.icon.fallback} />}
             {it.swatch && (
               <span className="swatch" aria-hidden style={{ background: `repeating-linear-gradient(90deg, ${it.swatch[0]} 0 6px, ${it.swatch[1]} 6px 9px)` }} />
             )}
