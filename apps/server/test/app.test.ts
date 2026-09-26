@@ -392,6 +392,32 @@ describe("P4 着せ替え・模様替え・図鑑・写真", () => {
     expect((await send()).skipped).toBe(true);
   });
 
+  it("留守中の自撮りは、画面から送ると撮った時刻の写真になり、1 枚だけ保存される", async () => {
+    const { app, db } = await awake();
+    const pet = db.prepare("SELECT id, state_json FROM pets").get() as { id: string; state_json: string };
+    const state = JSON.parse(pet.state_json);
+    const at = Date.UTC(2026, 0, 5, 2, 0);
+    state.selfies = [{ at, stage: "baby", speciesId: "pocco", equipped: {}, text: "こっそりカメラで自撮りしていた。" }];
+    db.prepare("UPDATE pets SET state_json = ? WHERE id = ?").run(JSON.stringify(state), pet.id);
+
+    const s = await getJson(app, "/api/state");
+    expect(s.pendingSelfies).toEqual([{ petId: pet.id, ...state.selfies[0] }]);
+    const send = async (selfieAt: number) => {
+      const form = new FormData();
+      form.set("file", new File([Buffer.from("x")], "a.png", { type: "image/png" }));
+      form.set("kind", "selfie");
+      form.set("petId", pet.id);
+      form.set("selfieAt", String(selfieAt));
+      return (await app.request("/api/photos", { method: "POST", body: form })).json();
+    };
+    expect((await send(at + 1)).skipped).toBe(true);
+    const res = await send(at);
+    expect(res.photo).toMatchObject({ kind: "selfie", takenAt: at, caption: "こっそりカメラで自撮りしていた。" });
+    expect((await send(at)).skipped).toBe(true);
+    expect((await getJson(app, "/api/photos")).photos).toHaveLength(1);
+    expect((await getJson(app, "/api/state")).pendingSelfies).toEqual([]);
+  });
+
   it("PNG 以外は受け付けない", async () => {
     const { app } = await awake();
     const form = new FormData();

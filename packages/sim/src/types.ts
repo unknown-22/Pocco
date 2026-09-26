@@ -85,6 +85,18 @@ export interface PetState {
   inheritedHobbies: string[];
   /** 旅立ったときの記録 */
   farewell?: Farewell;
+  /** 留守中に自撮りした場面。次に開いたときに画面側で写真にする（仕様書 10.10） */
+  selfies: Selfie[];
+}
+
+/** 自撮りしたときの姿（写真を描くのに使う） */
+export interface Selfie {
+  at: number;
+  stage: Stage;
+  speciesId: string;
+  equipped: Equipped;
+  /** 日記と同じ文。写真のキャプションになる */
+  text: string;
 }
 
 export interface DailyLog {

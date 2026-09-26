@@ -47,6 +47,7 @@ export function createPet(opts: {
     today: { day: "", sleptOnTime: false, wokenAtNight: false, tags: [], played: false },
     treasures: [],
     inheritedHobbies: [],
+    selfies: [],
   };
   return {
     id: opts.id,

@@ -98,6 +98,7 @@ export function createApp(db: DB, opts: AppOptions = {}) {
     inventory: getInventory(db),
     unread: unreadCount(db, pet.id),
     pendingFarewell: pendingFarewell(),
+    pendingSelfies: pendingSelfies(),
     absence: meta.absence,
     debug: Boolean(opts.debug),
     ...(reaction ? { reaction } : {}),
@@ -118,6 +119,13 @@ export function createApp(db: DB, opts: AppOptions = {}) {
       witnessed: pet.state.farewell!.witnessed,
       lastWords: pet.state.farewell!.lastWords,
     };
+  }
+
+  /** まだ写真になっていない自撮り（仕様書 10.10）。先代の分も残っていれば出す */
+  function pendingSelfies() {
+    return listPets(db).flatMap((pet) =>
+      pet.state.selfies.map((sf) => ({ petId: pet.id, ...sf })),
+    );
   }
 
   app.onError((err, c) => {
@@ -220,19 +228,37 @@ export function createApp(db: DB, opts: AppOptions = {}) {
     const now = clock();
     const { pet } = advance(db, now);
     const petId = typeof body.petId === "string" && body.petId ? body.petId : pet.id;
-    const kind = body.kind === "farewell" ? "farewell" : "snap";
+    const kind = body.kind === "farewell" || body.kind === "selfie" ? body.kind : "snap";
     // 最後の場面の写真は 1 匹につき 1 枚
     if (kind === "farewell" && hasPhotoOfKind(db, petId, "farewell")) return c.json({ skipped: true });
 
-    const caption =
+    let caption =
       typeof body.caption === "string" && body.caption.trim()
         ? body.caption.trim().slice(0, 60)
         : (listTimeline(db, petId, { limit: 50 }).find((e) => e.kind === "pet")?.text ?? "");
+    let takenAt = now;
+    const bytes = Buffer.from(await file.arrayBuffer());
     const id = randomUUID();
     const name = `${id}.png`;
-    fs.mkdirSync(photosDir, { recursive: true });
-    fs.writeFileSync(path.join(photosDir, name), Buffer.from(await file.arrayBuffer()));
-    insertPhoto(db, { id, petId, takenAt: now, caption, file: name, kind });
+
+    const saved = db.transaction(() => {
+      if (kind === "selfie") {
+        // 自撮りは待っているものと引きかえ。二重に送られても 1 枚だけ（撮影時刻は自撮りした時刻）
+        const owner = getPet(db, petId);
+        const at = Number(body.selfieAt);
+        const index = owner?.state.selfies.findIndex((sf) => sf.at === at) ?? -1;
+        if (!owner || index < 0) return false;
+        const [selfie] = owner.state.selfies.splice(index, 1);
+        savePet(db, owner);
+        takenAt = selfie!.at;
+        caption = selfie!.text;
+      }
+      fs.mkdirSync(photosDir, { recursive: true });
+      fs.writeFileSync(path.join(photosDir, name), bytes);
+      insertPhoto(db, { id, petId, takenAt, caption, file: name, kind });
+      return true;
+    })();
+    if (!saved) return c.json({ skipped: true });
     return c.json({ photo: getPhoto(db, id) });
   });
 

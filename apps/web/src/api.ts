@@ -1,4 +1,4 @@
-import type { DecorTarget, GameId, Pet, RoomState, TimelineEvent, WearSlot } from "@pocco/sim";
+import type { DecorTarget, GameId, Pet, RoomState, Selfie, TimelineEvent, WearSlot } from "@pocco/sim";
 
 export interface InventoryItem {
   itemId: string;
@@ -22,6 +22,8 @@ export interface GameState {
   debug: boolean;
   reaction?: Reaction;
   pendingFarewell: PendingFarewell | null;
+  /** 写真にするのを待っている自撮り */
+  pendingSelfies: (Selfie & { petId: string })[];
 }
 
 export interface PendingFarewell {

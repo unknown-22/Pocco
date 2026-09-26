@@ -90,4 +90,29 @@ describe("simulate", () => {
     expect(old.every((e) => e.importance !== "normal")).toBe(true);
     expect(events.filter((e) => e.eventId === "evolve").map((e) => e.text.slice(0, 5))).toEqual(["こどもになっ", "ティーンにな", "おとなになっ"].map((x) => x.slice(0, 5)));
   });
+
+  it("留守が続くとたまに自撮りする。明るい時間だけで、1 日 1 回まで・たまるのは 3 枚まで", () => {
+    const { world, events } = simulate(newWorld(), START + 40 * DAY, { timezone: TZ, lastSeenAt: START });
+    const selfies = events.filter((e) => e.eventId === "selfie");
+    expect(selfies.length).toBeGreaterThan(0);
+    for (const e of selfies) {
+      const h = localHour(e.at, TZ);
+      expect(h >= 9 && h < 17).toBe(true);
+      expect(e.importance).toBe("rare");
+    }
+    for (let i = 1; i < selfies.length; i++) expect(selfies[i]!.at - selfies[i - 1]!.at).toBeGreaterThanOrEqual(DAY);
+    expect(world.pet.state.selfies.length).toBeLessThanOrEqual(3);
+    expect(world.pet.state.selfies[0]).toMatchObject({ at: selfies[0]!.at, text: selfies[0]!.text });
+  });
+
+  it("見ているあいだは自撮りしない", () => {
+    let w = newWorld();
+    let count = 0;
+    for (let t = START + HOUR; t <= START + 20 * DAY; t += HOUR) {
+      const r = simulate(w, t, { timezone: TZ, lastSeenAt: t });
+      count += r.events.filter((e) => e.eventId === "selfie").length;
+      w = r.world;
+    }
+    expect(count).toBe(0);
+  });
 });

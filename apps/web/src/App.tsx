@@ -10,6 +10,7 @@ import { FoodSheet } from "./ui/FoodSheet.tsx";
 import { StatusSheet } from "./ui/StatusSheet.tsx";
 import { CollectionTab } from "./ui/CollectionTab.tsx";
 import { Farewell } from "./ui/Farewell.tsx";
+import { useSelfies } from "./ui/useSelfies.ts";
 
 const POLL_MS = 30_000;
 
@@ -20,6 +21,7 @@ export function App() {
   const refresh = useStore((s) => s.refresh);
   const sheet = useStore((s) => s.sheet);
   const toast = useStore((s) => s.toast);
+  useSelfies();
 
   // 定期的に、また画面に戻ってきたときに最新の状態を取る（仕様書 4.3）
   useEffect(() => {

@@ -111,3 +111,9 @@ export const KEEPSAKE: Sprite = {
   rows: ["..rr..", "bbrrbb", "bBrrBb", "bBrrBb", "bbbbbb"],
   colors: { b: "box", B: "boxShade", r: "boxRibbon" },
 };
+
+/** 写真のきらっ（自撮り） */
+export const SPARKLE: Sprite = {
+  rows: ["..s..", ".sSs.", "sSSSs", ".sSs.", "..s.."],
+  colors: { s: "boxRibbon", S: "note" },
+};
