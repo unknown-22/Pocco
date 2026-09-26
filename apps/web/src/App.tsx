@@ -1,8 +1,8 @@
 import { useEffect } from "react";
 import { useStore } from "./store.ts";
-import { RoomCanvas } from "./ui/RoomCanvas.tsx";
 import { StatusBar } from "./ui/StatusBar.tsx";
-import { ActionBar } from "./ui/ActionBar.tsx";
+import { Home } from "./ui/Home.tsx";
+import { Diary } from "./ui/Diary.tsx";
 import { TabBar } from "./ui/TabBar.tsx";
 import { Placeholder } from "./ui/Placeholder.tsx";
 import { Settings } from "./ui/Settings.tsx";
@@ -38,13 +38,8 @@ export function App() {
           <>
             <StatusBar pet={pet} timezone={game.timezone} />
             <main className="content">
-              {tab === "home" && (
-                <>
-                  <RoomCanvas stage={pet.state.stage} timezone={game.timezone} />
-                  <ActionBar />
-                </>
-              )}
-              {tab === "diary" && <Placeholder title="日記" note="留守中の日記は P1 で実装します" />}
+              {tab === "home" && <Home />}
+              {tab === "diary" && <Diary />}
               {tab === "items" && <Placeholder title="もちもの" note="食べ物・拾い物・着せ替えは P2〜P4 で実装します" />}
               {tab === "collection" && <Placeholder title="図鑑" note="図鑑・思い出・アルバムは P3〜P4 で実装します" />}
               {tab === "settings" && <Settings />}

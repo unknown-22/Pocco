@@ -1,16 +1,6 @@
-export type DayPeriod = "morning" | "day" | "evening" | "night";
+import { localParts } from "@pocco/sim";
 
-/** 指定タイムゾーンでの時・分。 */
-export function localHM(epochMs: number, timeZone: string): { h: number; m: number } {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    hour: "numeric",
-    minute: "numeric",
-    hourCycle: "h23",
-  }).formatToParts(epochMs);
-  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? 0);
-  return { h: get("hour"), m: get("minute") };
-}
+export type DayPeriod = "morning" | "day" | "evening" | "night";
 
 export function dayPeriod(hour: number): DayPeriod {
   if (hour >= 5 && hour < 9) return "morning";
@@ -20,6 +10,29 @@ export function dayPeriod(hour: number): DayPeriod {
 }
 
 export function formatClock(epochMs: number, timeZone: string): string {
-  const { h, m } = localHM(epochMs, timeZone);
-  return `${h}:${String(m).padStart(2, "0")}`;
+  const { hour, minute } = localParts(epochMs, timeZone);
+  return `${hour}:${String(minute).padStart(2, "0")}`;
+}
+
+const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
+
+/** 「今日」「昨日」「1月5日(月)」 */
+export function dayLabel(epochMs: number, now: number, timeZone: string): string {
+  const p = localParts(epochMs, timeZone);
+  const n = localParts(now, timeZone);
+  const a = Date.UTC(p.year, p.month - 1, p.day);
+  const b = Date.UTC(n.year, n.month - 1, n.day);
+  const diff = Math.round((b - a) / 86_400_000);
+  if (diff === 0) return "今日";
+  if (diff === 1) return "昨日";
+  return `${p.month}月${p.day}日(${WEEKDAYS[new Date(a).getUTCDay()]})`;
+}
+
+/** 「5時間」「2日」など、留守の長さ */
+export function formatDuration(ms: number): string {
+  const min = Math.round(ms / 60_000);
+  if (min < 60) return `${min}分`;
+  const h = Math.round(min / 60);
+  if (h < 24) return `${h}時間`;
+  return `${Math.round(h / 24)}日`;
 }

@@ -75,3 +75,24 @@ export function drawSprite(
     }
   });
 }
+
+// 散らかり（仕様書 6.2）
+export const LITTER: Record<string, Sprite> = {
+  paper: {
+    rows: [".pp.", "pPpp", "ppP.", ".pp."],
+    colors: { p: "paper", P: "paperShade" },
+  },
+  toy: {
+    rows: [".tt.", "tTtt", "tttt", ".tt."],
+    colors: { t: "toy", T: "toyLight" },
+  },
+  crumb: {
+    rows: ["c..c", ".c..", "..cc"],
+    colors: { c: "crumb" },
+  },
+};
+
+export const ZZZ: Sprite = {
+  rows: ["zzz", "..z", ".z.", "z..", "zzz"],
+  colors: { z: "zzz" },
+};

@@ -34,7 +34,14 @@ export const BASE = {
   shellShade: "#ecd6b5",
   shellLine: "#c9a579",
   shellSpot: "#7fd1b9",
+  // 散らかり
+  paper: "#fdfaf4",
+  paperShade: "#d9cfc0",
+  toy: "#7fb8f0",
+  toyLight: "#d4ecff",
+  crumb: "#a8744a",
   // 共通
+  zzz: "#8f9df0",
   shadow: "#00000022",
 } as const;
 

@@ -25,10 +25,12 @@ export function createPet(opts: {
     },
     foodPrefs: {},
     hobbies: [],
-    activity: { type: "idle", since: opts.now },
+    activity: { type: "egg", since: opts.now },
     equipped: {},
     lifespanModifier: 0,
     stats: {},
+    cooldowns: {},
+    drift: { day: "", used: {} },
   };
   return {
     id: opts.id,

@@ -33,6 +33,28 @@ const MIGRATIONS: string[] = [
     processed_at INTEGER NOT NULL
   );
   `,
+  // v2: P1 タイムライン
+  `
+  ALTER TABLE meta ADD COLUMN last_seen_at INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE meta ADD COLUMN absence_from INTEGER;
+  ALTER TABLE meta ADD COLUMN absence_to INTEGER;
+  UPDATE meta SET last_seen_at = last_interacted_at;
+  CREATE TABLE timeline (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pet_id TEXT NOT NULL,
+    at INTEGER NOT NULL,
+    end_at INTEGER,
+    day_key TEXT NOT NULL,
+    event_id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    text TEXT NOT NULL,
+    importance TEXT NOT NULL,
+    read INTEGER NOT NULL DEFAULT 0,
+    refs_json TEXT
+  );
+  CREATE INDEX timeline_pet_at ON timeline (pet_id, at);
+  CREATE INDEX timeline_day ON timeline (pet_id, day_key);
+  `,
 ];
 
 export function openDb(file: string): DB {

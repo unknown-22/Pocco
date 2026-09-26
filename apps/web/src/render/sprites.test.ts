@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BABY, EGG, blink } from "./sprites.ts";
+import { BABY, EGG, LITTER, ZZZ, blink } from "./sprites.ts";
 
 describe("sprites", () => {
   it.each([["EGG", EGG], ["BABY", BABY]] as const)("%s は全行が同じ幅で、未定義の文字がない", (_, sprite) => {

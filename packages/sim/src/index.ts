@@ -1,4 +1,7 @@
 export * from "./types.ts";
 export * from "./rng.ts";
+export * from "./clock.ts";
 export * from "./stage.ts";
 export * from "./pet.ts";
+export * from "./personality.ts";
+export * from "./engine.ts";
