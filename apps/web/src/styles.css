@@ -420,3 +420,49 @@ button { font: inherit; color: inherit; }
 .memorial-facts { gap: 6px; font-size: 14px; }
 .food.is-rare { background: linear-gradient(135deg, #fff, #fff6d6); }
 .diary-list.is-dated .diary-entry { grid-template-columns: 84px 22px 1fr; }
+
+/* P4 */
+.segmented {
+  flex-shrink: 0;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  overflow-x: auto;
+}
+.segmented button {
+  flex: 1;
+  border: none;
+  background: none;
+  padding: 8px 6px;
+  border-radius: 10px;
+  font-size: 13px;
+  white-space: nowrap;
+  color: var(--muted);
+}
+.segmented button.is-active { background: #fff; color: var(--text); box-shadow: 0 1px 3px rgba(74, 54, 86, 0.12); }
+.page-tabs { margin: 8px 16px 0; }
+.food.is-selected { box-shadow: 0 0 0 2px var(--accent-2), 0 2px 0 var(--line); }
+.food-new.is-on { background: var(--accent-2); }
+.swatch { width: 32px; height: 26px; border-radius: 6px; border: 1px solid var(--line); }
+.slot-list { display: flex; flex-direction: column; gap: 8px; }
+.slot { border: none; text-align: left; gap: 4px; cursor: pointer; }
+.flash { position: fixed; inset: 0; background: #fff; opacity: 0.8; pointer-events: none; z-index: 30; animation: flash 0.25s ease-out forwards; }
+@keyframes flash { to { opacity: 0; } }
+
+.zukan-rate { gap: 8px; }
+.zukan-cell.is-unknown .food-name { color: var(--muted); }
+.zukan-cell .portrait { margin-top: 2px; }
+.zukan-detail { gap: 4px; }
+
+.album-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.album-thumb { position: relative; padding: 0; border: none; border-radius: 10px; overflow: hidden; background: var(--surface-2); aspect-ratio: 1; }
+.album-thumb img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; display: block; }
+.album-tag { position: absolute; right: 4px; bottom: 4px; font-size: 14px; }
+.viewer { position: absolute; inset: 0; z-index: 25; background: rgba(47, 38, 56, 0.85); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.viewer-body { width: 100%; background: var(--surface); border-radius: 18px; padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+.viewer-body img { width: 100%; border-radius: 10px; image-rendering: pixelated; }
+.viewer-body p { margin: 0; }
+.viewer-actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 6px; }
+.viewer-actions > * { text-align: center; text-decoration: none; color: inherit; font-size: 13px; }

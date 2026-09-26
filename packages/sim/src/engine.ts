@@ -6,7 +6,7 @@ import { HOUR, MINUTE, dayKey, localHour } from "./clock.ts";
 import { drift, inSleepWindow } from "./personality.ts";
 import { createRng, hashSeed, randInt, type Rng } from "./rng.ts";
 import { stageForAge } from "./stage.ts";
-import { innateFoodPrefs } from "./pet.ts";
+import { innateFoodPrefs, normalizeRoom } from "./pet.ts";
 import { FOODS, foodAffinity, type Food } from "./foods.ts";
 import { pickText } from "./texts.ts";
 import { SPECIES, getSpecies, speciesForStage } from "./species.ts";
@@ -14,6 +14,8 @@ import { HOBBIES, MAX_HOBBIES, getHobby } from "./hobbies.ts";
 import { HOUSE_FINDS, getTreasure, pickWalkTreasure } from "./items.ts";
 import { depart, emptyDay, keepsakeOf, today } from "./life.ts";
 import { localParts } from "./clock.ts";
+import { FURNITURE_SLOTS, GIFT_WEARABLES, getFurniture, getWearable, wearAffinity } from "./decor.ts";
+import { innateWearTaste } from "./pet.ts";
 import type {
   Activity,
   ActivityType,
@@ -47,7 +49,7 @@ export interface SimContext {
 /** 持ち物に加わる物（サーバーが inventory に入れる） */
 export interface Gain {
   itemId: string;
-  kind: "treasure" | "food";
+  kind: "treasure" | "food" | "wear";
   at: number;
 }
 
@@ -113,6 +115,7 @@ export function normalizePet(pet: Pet): Pet {
 export function simulate(input: World, to: number, ctx: SimContext): SimResult {
   const world = structuredClone(input);
   normalizePet(world.pet);
+  normalizeRoom(world.room);
   const result: SimResult = { world, events: [], gains: [], discoveries: [] };
 
   // 時計が戻った場合は何もしない
@@ -202,6 +205,10 @@ function tick(
     } else {
       log("evolve", "major", { text: `${STAGE_LABEL[stage] ?? stage}になった！「${species.name}」に育った。` });
       discover("species", species.id);
+      // 成長の節目に着せ替えがひとつもらえる（仕様書 10.7）
+      const wear = GIFT_WEARABLES[Math.floor(rng() * GIFT_WEARABLES.length)]!;
+      gain(wear.id, "wear");
+      log("growth_gift", "normal", { text: `お祝いに${wear.name}をもらった。` });
     }
   }
   if (s.stage === "egg") return;
@@ -224,14 +231,40 @@ function tick(
   // --- 趣味を見つける（仕様書 6.4） ---
   if (!asleep && !outside && s.hobbies.length < MAX_HOBBIES && t - (s.cooldowns.hobby_found ?? -Infinity) >= 12 * HOUR) {
     const owned = new Set(s.treasures);
+    const furniture = new Set(Object.values(room.furniture));
     const found = HOBBIES.find(
-      (h) => !s.hobbies.includes(h.id) && h.discover(s, owned, s.inheritedHobbies.includes(h.id)),
+      (h) => !s.hobbies.includes(h.id) && h.discover(s, owned, s.inheritedHobbies.includes(h.id), furniture),
     );
     if (found) {
       s.hobbies.push(found.id);
       s.cooldowns.hobby_found = t;
       log("hobby_found", "major", { text: `趣味を見つけた：${found.name}！` });
       discover("hobby", found.id);
+    }
+  }
+
+  // --- 着せ替えの好き嫌い（仕様書 10.7） ---
+  const worn = (Object.entries(s.equipped) as [string, string | undefined][]).filter(([, id]) => id);
+  if (!asleep && !outside && worn.length > 0 && t - (s.cooldowns.wear_check ?? -Infinity) >= 8 * HOUR) {
+    s.cooldowns.wear_check = t;
+    const taste = innateWearTaste(pet.id);
+    for (const [slot, id] of worn) {
+      const item = getWearable(id!);
+      if (!item) continue;
+      const affinity = wearAffinity(s.personality, taste, item);
+      if (affinity < -20 && rng() < 0.5) {
+        // 嫌いな服は脱ぎ捨てる。部屋がちらかる
+        delete s.equipped[slot as keyof typeof s.equipped];
+        room.mess = clamp(room.mess + 5);
+        addLitter(room, rng, t, "paper");
+        log("wear_off", "normal", { text: `${item.name}を脱ぎ捨てた。` });
+        break;
+      }
+      if (affinity > 25 && rng() < 0.3) {
+        drift(s, "attachment", +1, day);
+        log("wear_like", "normal", { text: `お気に入りの${item.name}で、ごきげんだった。` });
+        break;
+      }
     }
   }
 
@@ -294,6 +327,12 @@ function tick(
   /** 散歩から帰る。何かを拾ってくる（仕様書 10.6） */
   function endWalk(since: number) {
     const duration = formatDuration(t - since);
+    if (rng() < 0.08) {
+      const wear = GIFT_WEARABLES[Math.floor(rng() * GIFT_WEARABLES.length)]!;
+      gain(wear.id, "wear");
+      log("walk_end", "rare", {}, { duration, item: wear.name });
+      return;
+    }
     if (rng() < 0.2) {
       const food = FOODS[Math.floor(rng() * FOODS.length)]!;
       gain(food.id, "food");
@@ -419,6 +458,22 @@ function tick(
           start("out", senior ? randInt(rng, 20, 60) : randInt(rng, 30, 180), "floor");
         },
       },
+      // 部屋の家具を使う（仕様書 10.8）
+      ...FURNITURE_SLOTS.flatMap((slot) => {
+        const f = getFurniture(room.furniture[slot.id] ?? "");
+        if (!f) return [];
+        const nightOnly = f.id === "telescope";
+        return [
+          {
+            weight: nightOnly && !night ? 0 : 0.5,
+            run: () => {
+              mark(`furniture_${f.id}`);
+              log(`furniture_${f.id}`, "normal", { text: f.useTexts[Math.floor(rng() * f.useTexts.length)]! });
+              start("idle", randInt(rng, 10, 20), "floor", { slot: slot.id });
+            },
+          },
+        ];
+      }),
       ...s.hobbies.map((id) => {
         const hobby = getHobby(id);
         return {

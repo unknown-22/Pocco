@@ -1,5 +1,5 @@
 // 趣味（仕様書 6.4）。条件を満たすと「趣味を見つけた」。最大 3 つ。
-// 家具による条件は P4 で追加する。いまは性格・行動の回数・拾った物で決まる。
+// 性格・行動の回数・拾った物・部屋の家具で決まる。
 
 import type { PetState } from "./types.ts";
 
@@ -7,8 +7,11 @@ export interface Hobby {
   id: string;
   name: string;
   icon: string;
-  /** 見つける条件。easy は親が同じ趣味を持っていたとき（条件がゆるくなる） */
-  discover: (s: PetState, owned: Set<string>, easy: boolean) => boolean;
+  /**
+   * 見つける条件。owned は自分で拾った物、furniture は部屋に置いてある家具、
+   * easy は親が同じ趣味を持っていたとき（条件がゆるくなる）
+   */
+  discover: (s: PetState, owned: Set<string>, easy: boolean, furniture: Set<string>) => boolean;
   /** 趣味の行動をしたときの日記 */
   texts: string[];
   /** 夜にやりがち */
@@ -23,7 +26,8 @@ export const HOBBIES: Hobby[] = [
     id: "collecting",
     name: "コレクション",
     icon: "🧺",
-    discover: (s, _o, e) => stat(s, "find") + stat(s, "walk") >= k(e, 4) && s.personality.curiosity > k(e, 10),
+    discover: (s, _o, e, f) =>
+      stat(s, "find") + stat(s, "walk") >= k(e, f.has("collection_shelf") ? 2 : 4) && s.personality.curiosity > k(e, 10),
     texts: ["拾ったものを並べて、ながめていた。", "コレクションの並べ方を変えていた。"],
   },
   {
@@ -37,7 +41,8 @@ export const HOBBIES: Hobby[] = [
     id: "stargazing",
     name: "ほしぞら観察",
     icon: "🔭",
-    discover: (s, _o, e) => s.personality.chronotype > k(e, 25) && stat(s, "window") >= k(e, 8),
+    discover: (s, _o, e, f) =>
+      f.has("telescope") ? s.personality.chronotype > k(e, 5) : s.personality.chronotype > k(e, 25) && stat(s, "window") >= k(e, 8),
     texts: ["窓から星座を探していた。", "流れ星を待っていた。"],
     night: true,
   },
@@ -52,22 +57,22 @@ export const HOBBIES: Hobby[] = [
     id: "music",
     name: "おんがく",
     icon: "🎵",
-    discover: (_s, owned) => owned.has("harmonica"),
+    discover: (s, owned, _e, f) => owned.has("harmonica") || (f.has("radio") && stat(s, "furniture_radio") >= 3),
     texts: ["ハーモニカを吹いていた。", "鼻歌に合わせてハーモニカを吹いた。"],
   },
   {
     id: "reading",
     name: "どくしょ",
     icon: "📖",
-    discover: (s, owned) => owned.has("picture_book") && s.personality.energy < 20,
+    discover: (s, owned, _e, f) => (owned.has("picture_book") || f.has("bookshelf")) && s.personality.energy < 20,
     texts: ["絵本を読んでいた。", "絵本の同じページをずっと見ていた。"],
   },
   {
     id: "gardening",
     name: "ガーデニング",
     icon: "🪴",
-    discover: (s, owned, e) => owned.has("seed") && s.personality.tidiness > (e ? 0 : 10),
-    texts: ["植木鉢に水をあげた。", "植木鉢の芽に話しかけていた。"],
+    discover: (s, owned, e, f) => (owned.has("seed") || f.has("plant_pot")) && s.personality.tidiness > (e ? 0 : 10),
+    texts: ["植木鉢の手入れをしていた。", "植木鉢の芽に話しかけていた。"],
   },
 ];
 

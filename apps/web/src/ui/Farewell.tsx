@@ -3,6 +3,7 @@ import { localParts } from "@pocco/sim";
 import type { PendingFarewell } from "../api.ts";
 import { useStore } from "../store.ts";
 import { PetPortrait } from "./PetPortrait.tsx";
+import { composeFarewellScene, uploadPhoto } from "../photo.ts";
 import { daysLived } from "./labels.ts";
 
 const LINE_MS = 2800;
@@ -21,6 +22,16 @@ export function Farewell({ farewell }: { farewell: PendingFarewell }) {
   const [step, setStep] = useState<Step>("words");
   const [shown, setShown] = useState(0);
   const lines = farewell.lastWords;
+  const room = useStore((s) => s.game!.room);
+
+  // 看取った最後の場面は、自動で写真に残す（1 匹につき 1 枚。サーバー側で重複を防ぐ）
+  useEffect(() => {
+    if (!farewell.witnessed) return;
+    composeFarewellScene(room, farewell.speciesId)
+      .then((blob) => uploadPhoto(blob, { kind: "farewell", petId: farewell.petId, caption: `${farewell.name}の 最後の日` }))
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [farewell.petId]);
 
   // ひとことを 1 行ずつゆっくり出す（スキップはできない）
   useEffect(() => {

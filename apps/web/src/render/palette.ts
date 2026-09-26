@@ -90,7 +90,7 @@ export function mix(a: string, b: string, t: number): string {
   return `#${hex}${a.slice(7)}`;
 }
 
-const cache = new Map<DayPeriod, Palette & { sky: string; skyLow: string }>();
+const cache = new Map<DayPeriod, Palette & { sky: string; skyLow: string; hex: (c: string) => string }>();
 
 export function paletteFor(period: DayPeriod) {
   const hit = cache.get(period);
@@ -101,7 +101,12 @@ export function paletteFor(period: DayPeriod) {
     const amount = PET_KEYS.has(key) ? tint.pet : tint.room;
     out[key] = key === "shadow" ? BASE[key] : mix(BASE[key], tint.color, amount);
   }
-  const result = { ...out, ...SKY[period] };
+  const result = {
+    ...out,
+    ...SKY[period],
+    /** 家具・壁紙など、直接指定した色を時間帯に合わせる */
+    hex: (c: string) => mix(c, tint.color, tint.room),
+  };
   cache.set(period, result);
   return result;
 }

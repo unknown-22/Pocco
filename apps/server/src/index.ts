@@ -16,6 +16,7 @@ let offset = 0;
 const clock = () => Date.now() + offset;
 const app = createApp(db, {
   clock,
+  photosDir: path.join(config.dataDir, "photos"),
   debug: config.debug ? { advance: (ms) => (offset += ms) } : undefined,
 });
 

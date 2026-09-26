@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import Database from "better-sqlite3";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { FOODS } from "@pocco/sim";
 import { openDb } from "../src/db.ts";
 import { createApp } from "../src/app.ts";
@@ -11,7 +14,8 @@ const DAY = 24 * HOUR;
 function setup(start = Date.UTC(2026, 0, 5, 0, 0)) {
   let now = start;
   const db = openDb(":memory:");
-  const app = createApp(db, { clock: () => now, debug: { advance: (ms) => (now += ms) } });
+  const photosDir = fs.mkdtempSync(path.join(os.tmpdir(), "pocco-photos-"));
+  const app = createApp(db, { clock: () => now, debug: { advance: (ms) => (now += ms) }, photosDir });
   return { app, db, advance: (ms: number) => (now += ms), now: () => now };
 }
 
@@ -169,7 +173,8 @@ describe("P2 おせわ", () => {
   it("最初から食べ物を持っていて、1 日 1 回おすそわけが届く", async () => {
     const { app, advance } = setup();
     const s1 = await getJson(app, "/api/state");
-    const total = (s: { inventory: { count: number }[] }) => s.inventory.reduce((n, i) => n + i.count, 0);
+    const total = (s: { inventory: { kind: string; count: number }[] }) =>
+      s.inventory.filter((i) => i.kind === "food").reduce((n, i) => n + i.count, 0);
     expect(total(s1)).toBe(10 + 3);
     const s2 = await getJson(app, "/api/state");
     expect(total(s2)).toBe(total(s1));
@@ -305,5 +310,93 @@ describe("nextEggTime", () => {
   it("6 時まで 2 時間もなければ、次の朝", async () => {
     const { nextEggTime } = await import("../src/world.ts");
     expect(nextEggTime(jst(10, 5), tz)).toBe(jst(11, 6));
+  });
+});
+
+describe("P4 着せ替え・模様替え・図鑑・写真", () => {
+  const act = (app: App, action: unknown) =>
+    post(app, "/api/actions", { clientActionId: crypto.randomUUID(), action });
+
+  async function awake() {
+    const ctx = setup();
+    await ctx.app.request("/api/state");
+    ctx.advance(3 * HOUR);
+    await ctx.app.request("/api/state");
+    const pet = ctx.db.prepare("SELECT id, state_json FROM pets").get() as { id: string; state_json: string };
+    const state = JSON.parse(pet.state_json);
+    state.activity = { type: "idle", since: ctx.now(), spot: "rug" };
+    ctx.db.prepare("UPDATE pets SET state_json = ? WHERE id = ?").run(JSON.stringify(state), pet.id);
+    return ctx;
+  }
+
+  it("最初から持っている帽子を着せられる。持っていない物は着せられない", async () => {
+    const { app } = await awake();
+    const ok = await (await act(app, { type: "equip", slot: "hat", itemId: "straw_hat" })).json();
+    expect(ok.pet.state.equipped.hat).toBe("straw_hat");
+    const ng = await act(app, { type: "equip", slot: "hat", itemId: "crown_gold" });
+    expect((await ng.json()).error).toBe("not_owned");
+    const off = await (await act(app, { type: "equip", slot: "hat", itemId: null })).json();
+    expect(off.pet.state.equipped.hat).toBeUndefined();
+  });
+
+  it("持っている家具を置ける。持っていない壁紙は使えない", async () => {
+    const { app } = await awake();
+    const moved = await (await act(app, { type: "decorate", target: "floor_right", itemId: "plant_pot" })).json();
+    expect(moved.room.furniture).toEqual({ floor_right: "plant_pot" });
+    const ng = await act(app, { type: "decorate", target: "wallpaper", itemId: "wall_night" });
+    expect((await ng.json()).error).toBe("not_owned");
+  });
+
+  it("図鑑の達成率が上がると、ごほうびがもらえる", async () => {
+    const { app, advance } = setup();
+    await app.request("/api/state");
+    advance(5 * DAY);
+    await app.request("/api/state");
+    const col = await getJson(app, "/api/collection");
+    expect(col.rate).toBeGreaterThanOrEqual(10);
+    const granted = col.rewards.filter((r: { granted: boolean }) => r.granted);
+    expect(granted.length).toBeGreaterThan(0);
+    const s = await getJson(app, "/api/state");
+    expect(s.inventory.some((i: { itemId: string }) => i.itemId === "wall_mint")).toBe(true);
+    expect(col.entries.some((e: { category: string }) => e.category === "event")).toBe(true);
+  });
+
+  it("写真を保存して、一覧・画像・削除ができる", async () => {
+    const { app } = await awake();
+    const png = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+      "base64",
+    );
+    const form = new FormData();
+    form.set("file", new File([png], "room.png", { type: "image/png" }));
+    const res = await (await app.request("/api/photos", { method: "POST", body: form })).json();
+    expect(res.photo.caption.length).toBeGreaterThan(0);
+    const { photos } = await getJson(app, "/api/photos");
+    expect(photos).toHaveLength(1);
+    const img = await app.request(`/api/photos/${res.photo.id}/image`);
+    expect(img.headers.get("content-type")).toBe("image/png");
+    expect(Buffer.from(await img.arrayBuffer())).toEqual(png);
+    await app.request(`/api/photos/${res.photo.id}`, { method: "DELETE" });
+    expect((await getJson(app, "/api/photos")).photos).toHaveLength(0);
+  });
+
+  it("最後の場面の写真は 1 匹につき 1 枚だけ", async () => {
+    const { app } = await awake();
+    const send = async () => {
+      const form = new FormData();
+      form.set("file", new File([Buffer.from("x")], "a.png", { type: "image/png" }));
+      form.set("kind", "farewell");
+      return (await app.request("/api/photos", { method: "POST", body: form })).json();
+    };
+    expect((await send()).photo).toBeDefined();
+    expect((await send()).skipped).toBe(true);
+  });
+
+  it("PNG 以外は受け付けない", async () => {
+    const { app } = await awake();
+    const form = new FormData();
+    form.set("file", new File(["hello"], "a.txt", { type: "text/plain" }));
+    const res = await app.request("/api/photos", { method: "POST", body: form });
+    expect(res.status).toBe(400);
   });
 });

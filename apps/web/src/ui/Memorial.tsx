@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { getFood, getHobby, getTreasure, localParts } from "@pocco/sim";
-import { api, type MemorialPet, type TimelineEntry } from "../api.ts";
+import { api, type MemorialPet, type Photo, type TimelineEntry } from "../api.ts";
 import { useStore } from "../store.ts";
 import { formatClock } from "../time.ts";
 import { PetPortrait } from "./PetPortrait.tsx";
@@ -45,7 +45,6 @@ export function Memorial() {
 
   return (
     <section className="page">
-      <h2 className="page-title pixel">思い出</h2>
       {!pets ? (
         <p className="muted">よみこみちゅう…</p>
       ) : (
@@ -70,7 +69,6 @@ export function Memorial() {
           ))}
         </div>
       )}
-      <p className="muted">図鑑（種族・食べ物・拾い物・趣味・イベント）は P4 で追加します。</p>
     </section>
   );
 }
@@ -78,6 +76,10 @@ export function Memorial() {
 function MemorialDetail({ pet, onBack }: { pet: MemorialPet; onBack: () => void }) {
   const timezone = useStore((s) => s.game!.timezone);
   const [diary, setDiary] = useState<TimelineEntry[] | null>(null);
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  useEffect(() => {
+    api.getPhotos(pet.id).then((r) => setPhotos(r.photos), () => {});
+  }, [pet.id]);
   const food = pet.favoriteFood ? getFood(pet.favoriteFood) : undefined;
   const keepsake = pet.keepsakeItemId ? getTreasure(pet.keepsakeItemId) : undefined;
   const dateTime = (t: number) => {
@@ -111,6 +113,19 @@ function MemorialDetail({ pet, onBack }: { pet: MemorialPet; onBack: () => void 
           ))}
           <p className="muted">{pet.witnessed ? "（最後のひとこと）" : "（置き手紙）"}</p>
         </div>
+      )}
+
+      {photos.length > 0 && (
+        <>
+          <h3 className="section-title">写真</h3>
+          <div className="album-grid">
+            {photos.map((p) => (
+              <a key={p.id} className="album-thumb" href={api.photoUrl(p.id)} target="_blank" rel="noreferrer">
+                <img src={api.photoUrl(p.id)} alt={p.caption} loading="lazy" />
+              </a>
+            ))}
+          </div>
+        </>
       )}
 
       <h3 className="section-title">大事なできごと</h3>

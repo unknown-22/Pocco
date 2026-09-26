@@ -14,6 +14,7 @@ import {
   type RoomState,
 } from "@pocco/sim";
 import type { DB } from "./db.ts";
+import { grantRewards } from "./rewards.ts";
 import {
   addItem,
   ensureInitialized,
@@ -97,6 +98,7 @@ export function advance(db: DB, now: number): Loaded {
       meta = { ...meta, currentPetId: child.id, lastSimulatedAt: eggAt, nextEggAt: null };
     }
     saveMeta(db, meta);
+    grantRewards(db, now);
     return { meta, pet, room };
   })();
 }

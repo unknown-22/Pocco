@@ -11,3 +11,5 @@ export * from "./species.ts";
 export * from "./items.ts";
 export * from "./hobbies.ts";
 export * from "./life.ts";
+export * from "./decor.ts";
+export * from "./collection.ts";

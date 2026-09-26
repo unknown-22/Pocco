@@ -5,8 +5,11 @@ import type { ColorKey } from "./palette.ts";
 
 export interface Sprite {
   rows: string[];
-  colors: Record<string, ColorKey>;
+  /** パレットのキー、または直接の色（"#rrggbb"。時間帯の色味は p.hex で寄せる） */
+  colors: Record<string, ColorKey | `#${string}`>;
 }
+
+export type DrawPalette = Record<ColorKey, string> & { hex?: (c: string) => string };
 
 export const EGG: Sprite = {
   rows: [
@@ -64,13 +67,13 @@ export function drawSprite(
   sprite: Sprite,
   x: number,
   y: number,
-  palette: Record<ColorKey, string>,
+  palette: DrawPalette,
 ) {
   sprite.rows.forEach((row, dy) => {
     for (let dx = 0; dx < row.length; dx++) {
       const key = sprite.colors[row[dx]!];
       if (!key) continue;
-      ctx.fillStyle = palette[key];
+      ctx.fillStyle = key.startsWith("#") ? (palette.hex ? palette.hex(key) : key) : palette[key as ColorKey];
       ctx.fillRect(x + dx, y + dy, 1, 1);
     }
   });

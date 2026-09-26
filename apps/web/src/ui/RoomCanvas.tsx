@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { getSpecies, localHour, type Pet, type RoomState } from "@pocco/sim";
 import { paletteFor, withSpecies } from "../render/palette.ts";
-import { drawRoom, FLOOR_Y, ROOM_SIZE } from "../render/room.ts";
-import { EGG, KEEPSAKE, LITTER, NOTE, ZZZ, blink, drawSprite, type Sprite } from "../render/sprites.ts";
-import { FEATURES, GLASSES, bodySprite } from "../render/body.ts";
+import { drawRoom, FLOOR_Y, ROOM_SIZE, SLOT_POS } from "../render/room.ts";
+import { EGG, KEEPSAKE, LITTER, NOTE, ZZZ, drawSprite } from "../render/sprites.ts";
+import { drawPet } from "../render/pet.ts";
+import { FURNITURE_SPRITES } from "../render/decor.ts";
+import { setRoomCanvas } from "../photo.ts";
 import { dayPeriod } from "../time.ts";
 import { serverNow } from "../store.ts";
 
@@ -44,7 +46,10 @@ export function RoomCanvas({ pet, room, timezone, bubble, onTapPet, onTapLitter 
   const stage = pet.state.stage;
   const activity = pet.state.activity;
   const speciesId = pet.state.speciesId;
-  const { litter, lightsOff, keepsakeItemId } = room;
+  const { litter, lightsOff, keepsakeItemId, wallpaperId, floorId, furniture } = room;
+  const equipped = pet.state.equipped;
+  const equippedKey = JSON.stringify(equipped);
+  const furnitureKey = JSON.stringify(furniture);
 
   // 吹き出しは数秒で消す
   useEffect(() => {
@@ -84,8 +89,14 @@ export function RoomCanvas({ pet, room, timezone, bubble, onTapPet, onTapLitter 
     if (!ctx) return;
     ctx.imageSmoothingEnabled = false;
 
+    setRoomCanvas(canvasRef.current);
     const type = activity.type;
-    const home = SPOT_X[activity.spot ?? "floor"] ?? 64;
+    // 家具を使っているときは、その家具の前
+    const slotPos = activity.slot ? SLOT_POS[activity.slot] : undefined;
+    const slotSprite = activity.slot ? FURNITURE_SPRITES[furniture[activity.slot] ?? ""] : undefined;
+    const home = slotPos
+      ? slotPos.x + (slotSprite ? slotSprite.rows[0]!.length / 2 : 6)
+      : (SPOT_X[activity.spot ?? "floor"] ?? 64);
     const roam = ROAM[type];
     const walker = { target: home, nextDecision: 0 };
     const asleep = type === "sleep" || type === "nap";
@@ -94,9 +105,8 @@ export function RoomCanvas({ pet, room, timezone, bubble, onTapPet, onTapLitter 
     if (petX.current === null || asleep) petX.current = home;
 
     const species = getSpecies(speciesId);
-    const body = bodySprite(stage);
-    const feature = species.feature !== "none" ? FEATURES[species.feature] : null;
     const senior = stage === "senior" || stage === "final_day";
+    const decor = { wallpaperId, floorId, furniture };
 
     let raf = 0;
     let last = performance.now();
@@ -109,7 +119,7 @@ export function RoomCanvas({ pet, room, timezone, bubble, onTapPet, onTapLitter 
       const p = withSpecies(base, period, species.colors, senior);
 
       ctx.clearRect(0, 0, ROOM_SIZE, ROOM_SIZE);
-      drawRoom(ctx, p, period === "night");
+      drawRoom(ctx, p, period === "night", decor);
       if (keepsakeItemId) drawSprite(ctx, KEEPSAKE, 76, 43, p);
       for (const l of litter) {
         const sprite = LITTER[l.kind];
@@ -148,31 +158,18 @@ export function RoomCanvas({ pet, room, timezone, bubble, onTapPet, onTapLitter 
         if (type === "play" && Math.floor(t / 400) % 3 === 0) bob = -3;
         if (type === "eat" || type === "hobby") bob = Math.floor(t / 300) % 2 ? -1 : 0;
         const eyesClosed = asleep || t % 4000 < 150;
-        const sprite: Sprite = eyesClosed ? blink(body) : body;
-        const w = sprite.rows[0]!.length;
-        const h = sprite.rows.length;
-        const baseY = onBed ? FLOOR_Y + 5 : FLOOR_Y + 22;
-        const px = Math.round(x - w / 2);
-        const py = baseY - h + bob + (asleep ? 1 : 0);
+        const bottom = (onBed ? FLOOR_Y + 5 : FLOOR_Y + 22) + bob + (asleep ? 1 : 0);
         if (!onBed) {
           ctx.fillStyle = p.shadow;
-          ctx.fillRect(px + 2, FLOOR_Y + 21, w - 4, 2);
+          ctx.fillRect(Math.round(x) - 6, FLOOR_Y + 21, 12, 2);
         }
-        drawSprite(ctx, sprite, px, py, p);
-        if (feature) {
-          const fw = feature.rows[0]!.length;
-          drawSprite(ctx, feature, px + Math.round((w - fw) / 2), py - feature.rows.length + 1, p);
-        }
-        if (senior && !asleep) {
-          const gw = GLASSES.rows[0]!.length;
-          const eyeRow = sprite.rows.findIndex((r) => r.includes("e"));
-          drawSprite(ctx, GLASSES, px + Math.round((w - gw) / 2), py + eyeRow - 1, p);
-        }
-        const top = feature ? py - feature.rows.length + 1 : py;
-        petBox.current = { x: px, y: top, w, h: py + h - top };
+        const box = drawPet(ctx, { speciesId, stage, equipped, eyesClosed }, x, bottom, p);
+        petBox.current = box;
+        const px = box.x;
+        const w = box.w;
         if (asleep) {
           const rise = Math.floor(t / 400) % 6;
-          drawSprite(ctx, ZZZ, px + w - 2, py - 4 - rise, p);
+          drawSprite(ctx, ZZZ, px + w - 2, box.y - 4 - rise, p);
         }
       }
 
@@ -192,7 +189,8 @@ export function RoomCanvas({ pet, room, timezone, bubble, onTapPet, onTapLitter 
     };
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [stage, speciesId, activity.type, activity.spot, litter, lightsOff, keepsakeItemId, timezone]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, speciesId, activity.type, activity.spot, activity.slot, litter, lightsOff, keepsakeItemId, timezone, wallpaperId, floorId, furnitureKey, equippedKey]);
 
   const size = ROOM_SIZE * scale;
   // 最期の日は少し色あせる（仕様書 7.3）

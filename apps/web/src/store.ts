@@ -14,6 +14,9 @@ interface Store {
   bubble: { text: string; id: number } | null;
   sheet: "food" | "status" | null;
   setSheet: (sheet: Store["sheet"]) => void;
+  /** 画面下に一瞬出す知らせ */
+  toast: { text: string; id: number } | null;
+  showToast: (text: string) => void;
   setTab: (tab: Tab) => void;
   refresh: () => Promise<void>;
   send: (action: Action) => Promise<GameState | null>;
@@ -42,6 +45,14 @@ export const useStore = create<Store>((set, get) => {
     timeline: { entries: [], hasMore: false, loading: false },
     bubble: null,
     sheet: null,
+    toast: null,
+    showToast: (text) => {
+      const id = ++bubbleId;
+      set({ toast: { text, id } });
+      setTimeout(() => {
+        if (get().toast?.id === id) set({ toast: null });
+      }, 2200);
+    },
     setSheet: (sheet) => set({ sheet }),
     setTab: (tab) => set({ tab }),
     refresh: () => api.getState().then(apply, fail).then(() => undefined),

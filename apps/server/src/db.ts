@@ -81,6 +81,23 @@ const MIGRATIONS: string[] = [
   );
   ALTER TABLE meta ADD COLUMN next_egg_at INTEGER;
   `,
+  // v5: P4 写真・模様替え
+  `
+  CREATE TABLE photos (
+    id TEXT PRIMARY KEY,
+    pet_id TEXT NOT NULL,
+    taken_at INTEGER NOT NULL,
+    caption TEXT NOT NULL,
+    file TEXT NOT NULL,
+    kind TEXT NOT NULL DEFAULT 'snap'
+  );
+  CREATE INDEX photos_pet ON photos (pet_id, taken_at);
+  INSERT OR IGNORE INTO inventory (item_id, kind, count, acquired_at)
+    SELECT v.id, v.kind, 1, 0 FROM (
+      SELECT 'wall_cream' AS id, 'wallpaper' AS kind UNION ALL SELECT 'floor_wood', 'floor'
+      UNION ALL SELECT 'plant_pot', 'furniture' UNION ALL SELECT 'straw_hat', 'wear'
+    ) v WHERE EXISTS (SELECT 1 FROM meta);
+  `,
 ];
 
 export function openDb(file: string): DB {

@@ -7,6 +7,8 @@ import {
   dayKey,
   normalizePet,
   STARTER_FOODS,
+  STARTER_DECOR,
+  eventEntryOf,
   type Pet,
   type RoomState,
   type TimelineEvent,
@@ -170,6 +172,7 @@ export function ensureInitialized(db: DB, now: number): Meta {
     saveRoom(db, createRoom());
     saveMeta(db, meta);
     for (const [id, count] of Object.entries(STARTER_FOODS)) addItem(db, id, "food", count, now);
+    for (const d of STARTER_DECOR) addItem(db, d.itemId, d.kind, 1, now);
   })();
   return meta;
 }
@@ -201,6 +204,9 @@ export function insertEvents(db: DB, petId: string, timezone: string, events: Ti
       const { n } = count.get(petId, day) as { n: number };
       if (n >= DAILY_NORMAL_LIMIT) continue;
     }
+    // 図鑑のイベントにあたる出来事は記録する
+    const entry = eventEntryOf(e);
+    if (entry) recordDiscovery(db, "event", entry, e.at);
     insert.run({
       petId,
       at: e.at,
@@ -282,6 +288,14 @@ export function addItem(db: DB, itemId: string, kind: string, count: number, now
   ).run(itemId, kind, count, now);
 }
 
+/** その種類の物を持っているか（着せ替え・家具など、使っても減らない物） */
+export function owns(db: DB, itemId: string, kind: string): boolean {
+  const row = db.prepare("SELECT count FROM inventory WHERE item_id = ? AND kind = ?").get(itemId, kind) as
+    | { count: number }
+    | undefined;
+  return (row?.count ?? 0) > 0;
+}
+
 /** 1 つ使う。持っていなければ false。 */
 export function useItem(db: DB, itemId: string): boolean {
   const res = db.prepare("UPDATE inventory SET count = count - 1 WHERE item_id = ? AND count > 0").run(itemId);
@@ -295,8 +309,11 @@ export function hasItem(db: DB, itemId: string): boolean {
 
 // ---------------------------------------------------------------- 図鑑・思い出
 
-export function recordDiscovery(db: DB, category: string, entryId: string, at: number) {
-  db.prepare("INSERT OR IGNORE INTO collection (category, entry_id, first_at) VALUES (?, ?, ?)").run(category, entryId, at);
+export function recordDiscovery(db: DB, category: string, entryId: string, at: number): boolean {
+  const res = db
+    .prepare("INSERT OR IGNORE INTO collection (category, entry_id, first_at) VALUES (?, ?, ?)")
+    .run(category, entryId, at);
+  return res.changes > 0;
 }
 
 export function getCollection(db: DB): { category: string; entryId: string; firstAt: number }[] {
@@ -322,4 +339,42 @@ export function listHighlights(db: DB, petId: string, limit: number): TimelineEn
     )
     .all(petId, limit) as TimelineRow[];
   return rows.map(toEntry);
+}
+
+// ---------------------------------------------------------------- 写真
+
+export interface Photo {
+  id: string;
+  petId: string;
+  takenAt: number;
+  caption: string;
+  file: string;
+  kind: string;
+}
+
+export function insertPhoto(db: DB, p: Photo) {
+  db.prepare(
+    "INSERT INTO photos (id, pet_id, taken_at, caption, file, kind) VALUES (@id, @petId, @takenAt, @caption, @file, @kind)",
+  ).run(p);
+}
+
+export function listPhotos(db: DB, petId?: string): Photo[] {
+  const rows = (
+    petId
+      ? db.prepare("SELECT * FROM photos WHERE pet_id = ? ORDER BY taken_at DESC").all(petId)
+      : db.prepare("SELECT * FROM photos ORDER BY taken_at DESC").all()
+  ) as { id: string; pet_id: string; taken_at: number; caption: string; file: string; kind: string }[];
+  return rows.map((r) => ({ id: r.id, petId: r.pet_id, takenAt: r.taken_at, caption: r.caption, file: r.file, kind: r.kind }));
+}
+
+export function getPhoto(db: DB, id: string): Photo | undefined {
+  return listPhotos(db).find((p) => p.id === id);
+}
+
+export function deletePhoto(db: DB, id: string) {
+  db.prepare("DELETE FROM photos WHERE id = ?").run(id);
+}
+
+export function hasPhotoOfKind(db: DB, petId: string, kind: string): boolean {
+  return Boolean(db.prepare("SELECT 1 FROM photos WHERE pet_id = ? AND kind = ?").get(petId, kind));
 }

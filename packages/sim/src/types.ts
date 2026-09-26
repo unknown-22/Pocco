@@ -50,6 +50,8 @@ export interface Activity {
   until?: number;
   spot?: Spot;
   hobbyId?: string;
+  /** 家具を使っているとき、その家具の場所 */
+  slot?: string;
 }
 
 export interface Equipped {

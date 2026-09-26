@@ -8,7 +8,7 @@ import { Settings } from "./ui/Settings.tsx";
 import { Items } from "./ui/Items.tsx";
 import { FoodSheet } from "./ui/FoodSheet.tsx";
 import { StatusSheet } from "./ui/StatusSheet.tsx";
-import { Memorial } from "./ui/Memorial.tsx";
+import { CollectionTab } from "./ui/CollectionTab.tsx";
 import { Farewell } from "./ui/Farewell.tsx";
 
 const POLL_MS = 30_000;
@@ -19,6 +19,7 @@ export function App() {
   const tab = useStore((s) => s.tab);
   const refresh = useStore((s) => s.refresh);
   const sheet = useStore((s) => s.sheet);
+  const toast = useStore((s) => s.toast);
 
   // 定期的に、また画面に戻ってきたときに最新の状態を取る（仕様書 4.3）
   useEffect(() => {
@@ -46,10 +47,11 @@ export function App() {
               {tab === "home" && <Home />}
               {tab === "diary" && <Diary />}
               {tab === "items" && <Items />}
-              {tab === "collection" && <Memorial />}
+              {tab === "collection" && <CollectionTab />}
               {tab === "settings" && <Settings />}
             </main>
             {error && <div className="toast">通信エラー: {error}</div>}
+            {!error && toast && <div className="toast" key={toast.id}>{toast.text}</div>}
             <TabBar />
             {sheet === "food" && <FoodSheet />}
             {sheet === "status" && <StatusSheet />}

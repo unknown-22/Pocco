@@ -8,6 +8,8 @@ import { createRng, hashSeed, randInt, type Rng } from "./rng.ts";
 import type { World } from "./engine.ts";
 import type { PetState, TimelineEvent } from "./types.ts";
 import { today } from "./life.ts";
+import { FURNITURE_SLOTS, getFloor, getFurniture, getWallpaper, getWearable, wearAffinity, type WearSlot } from "./decor.ts";
+import { innateWearTaste } from "./pet.ts";
 
 export interface CareContext {
   timezone: string;
@@ -308,3 +310,78 @@ function babyize(s: PetState, text: string): string {
   return short ? `${short}…！` : text;
 }
 
+
+// ---------------------------------------------------------------- 着せ替え
+
+/** 着せる（itemId が null なら脱がせる）。好みで反応が変わる（仕様書 10.7） */
+export function equip(world: World, slot: WearSlot, itemId: string | null, t: number, ctx: CareContext): CareResult {
+  const s = world.pet.state;
+  if (s.stage === "egg" || isAway(s)) return AWAY;
+  if (itemId === null) {
+    delete s.equipped[slot];
+    return { bubble: "", reaction: "none", events: [] };
+  }
+  const item = getWearable(itemId);
+  if (!item || item.slot !== slot) throw new Error(`invalid wearable: ${itemId}`);
+  s.equipped[slot] = itemId;
+  const rng = careRng(world, "equip", t);
+  countCare(s, "equip");
+  const affinity = wearAffinity(s.personality, innateWearTaste(world.pet.id), item);
+  if (isAsleep(s)) return { bubble: "", reaction: "asleep", events: [] };
+  if (affinity > 25) {
+    drift(s, "attachment", +1, dayKey(t, ctx.timezone));
+    return {
+      bubble: babyize(s, pick(rng, ["にあう？", "これ すき！", "えへへ"])),
+      reaction: "love",
+      events: [userEvent(t, "equip_love", `${item.name}を着せた。とても気に入ったみたい。`)],
+    };
+  }
+  if (affinity < -20) {
+    return {
+      bubble: babyize(s, pick(rng, ["これ やだ…", "うーん…", "ちょっと ちがう"])),
+      reaction: "dislike",
+      events: [userEvent(t, "equip_dislike", `${item.name}を着せた。あまり気に入っていないみたい…`)],
+    };
+  }
+  return {
+    bubble: babyize(s, pick(rng, ["どう？", "ふふ", "あたらしい！"])),
+    reaction: "normal",
+    events: [userEvent(t, "equip", `${item.name}を着せた。`)],
+  };
+}
+
+// ---------------------------------------------------------------- 模様替え
+
+export type DecorTarget = "wallpaper" | "floor" | "wall_left" | "wall_right" | "floor_left" | "floor_right";
+
+/** 壁紙・床・家具を変える（itemId が null なら家具を片付ける）（仕様書 10.8） */
+export function decorate(world: World, target: DecorTarget, itemId: string | null, t: number, _ctx: CareContext): CareResult {
+  const room = world.room;
+  if (target === "wallpaper") {
+    if (!itemId || getWallpaper(itemId).id !== itemId) throw new Error(`invalid wallpaper: ${itemId}`);
+    room.wallpaperId = itemId;
+  } else if (target === "floor") {
+    if (!itemId || getFloor(itemId).id !== itemId) throw new Error(`invalid floor: ${itemId}`);
+    room.floorId = itemId;
+  } else {
+    const slot = FURNITURE_SLOTS.find((sl) => sl.id === target);
+    if (!slot) throw new Error(`invalid slot: ${target}`);
+    if (itemId === null) {
+      delete room.furniture[target];
+    } else {
+      const f = getFurniture(itemId);
+      if (!f || f.kind !== slot.kind) throw new Error(`invalid furniture: ${itemId}`);
+      // 同じ家具はひとつだけ置ける
+      for (const [k, v] of Object.entries(room.furniture)) if (v === itemId) delete room.furniture[k];
+      room.furniture[target] = itemId;
+    }
+  }
+  const s = world.pet.state;
+  const rng = careRng(world, "decorate", t);
+  const present = !isAway(s) && !isAsleep(s) && s.stage !== "egg";
+  return {
+    bubble: present ? babyize(s, pick(rng, ["わあ！", "いいね", "おへや かわった！"])) : "",
+    reaction: "none",
+    events: [userEvent(t, "decorate", "部屋の模様替えをした。")],
+  };
+}

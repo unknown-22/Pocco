@@ -2,6 +2,12 @@ import type { Pet, PetState, RoomState } from "./types.ts";
 import { createRng, hashSeed, randInt } from "./rng.ts";
 import { TASTE_TAGS } from "./foods.ts";
 
+/** 生まれつきの服の好み。スタイルごとに -20〜20。 */
+export function innateWearTaste(petId: string): Record<string, number> {
+  const rng = createRng(hashSeed(petId, "wear"));
+  return Object.fromEntries(["cute", "cool", "funny", "natural"].map((st) => [st, randInt(rng, -20, 20)]));
+}
+
 /** 生まれつきの食の好み。タグごとに -30〜30。 */
 export function innateFoodPrefs(petId: string): Record<string, number> {
   const rng = createRng(hashSeed(petId, "prefs"));
@@ -58,7 +64,14 @@ export function createRoom(): RoomState {
     mess: 0,
     wallpaperId: "wall_cream",
     floorId: "floor_wood",
-    furniture: { slot_1: "bed", slot_2: "fridge", slot_3: "window" },
+    furniture: { floor_left: "plant_pot" },
     litter: [],
   };
+}
+
+/** 古い部屋データを直す（P3 以前は家具の場所の形式が違った） */
+export function normalizeRoom(room: RoomState): RoomState {
+  const valid = new Set(["wall_left", "wall_right", "floor_left", "floor_right"]);
+  for (const slot of Object.keys(room.furniture)) if (!valid.has(slot)) delete room.furniture[slot];
+  return room;
 }

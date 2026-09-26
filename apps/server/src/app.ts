@@ -1,11 +1,20 @@
 // API（仕様書 12 章）。
 
+import fs from "node:fs";
+import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { Hono } from "hono";
 import {
   ABSENT_AFTER_MS,
+  REWARDS,
   clean,
+  completionRate,
+  decorate,
   depart,
+  equip,
   feed,
+  type DecorTarget,
+  type WearSlot,
   getSpecies,
   getFood,
   setLights,
@@ -18,7 +27,13 @@ import type { DB } from "./db.ts";
 import { deliverDailyGift } from "./gifts.ts";
 import {
   addItem,
+  deletePhoto,
   getCollection,
+  getPhoto,
+  hasPhotoOfKind,
+  insertPhoto,
+  listPhotos,
+  owns,
   getInventory,
   getPet,
   listHighlights,
@@ -36,6 +51,7 @@ import {
   useItem,
 } from "./repo.ts";
 import { advance, type Loaded } from "./world.ts";
+import { grantRewards, rewardName } from "./rewards.ts";
 
 export type Clock = () => number;
 
@@ -43,7 +59,12 @@ export interface AppOptions {
   clock?: Clock;
   /** 開発用の時間早送り。指定したときだけ /api/debug/* が使える */
   debug?: { advance: (ms: number) => void };
+  /** 写真の保存先 */
+  photosDir?: string;
 }
+
+/** 写真 1 枚の上限 */
+const MAX_PHOTO_BYTES = 4 * 1024 * 1024;
 
 export type Action =
   | { type: "rename"; name: string }
@@ -51,7 +72,9 @@ export type Action =
   | { type: "clean"; litterIds?: string[] }
   | { type: "talk"; idle?: boolean }
   | { type: "lights"; on: boolean }
-  | { type: "farewell_seen"; petId: string };
+  | { type: "farewell_seen"; petId: string }
+  | { type: "equip"; slot: WearSlot; itemId: string | null }
+  | { type: "decorate"; target: DecorTarget; itemId: string | null };
 
 const MAX_DEBUG_ADVANCE = 30 * 24 * 60 * 60 * 1000;
 /** これより前に終わった留守は「おかえり」の対象にしない */
@@ -168,7 +191,64 @@ export function createApp(db: DB, opts: AppOptions = {}) {
     return c.json({ pets });
   });
 
-  app.get("/api/collection", (c) => c.json({ entries: getCollection(db) }));
+  app.get("/api/collection", (c) => {
+    advance(db, clock());
+    const entries = getCollection(db);
+    const granted = new Set(entries.filter((e) => e.category === "reward").map((e) => e.entryId));
+    return c.json({
+      entries: entries.filter((e) => e.category !== "reward"),
+      rate: completionRate(entries),
+      rewards: REWARDS.map((r) => ({ ...r, name: rewardName(r), granted: granted.has(String(r.at)) })),
+    });
+  });
+
+  // ---------------------------------------------------------------- 写真（仕様書 10.10）
+  const photosDir = opts.photosDir;
+
+  app.get("/api/photos", (c) => c.json({ photos: listPhotos(db, c.req.query("petId") || undefined) }));
+
+  app.post("/api/photos", async (c) => {
+    if (!photosDir) return c.json({ error: "photos_disabled" }, 404);
+    const body = await c.req.parseBody();
+    const file = body.file;
+    if (!(file instanceof File) || file.type !== "image/png") return c.json({ error: "invalid_file" }, 400);
+    if (file.size > MAX_PHOTO_BYTES) return c.json({ error: "too_large" }, 413);
+    const now = clock();
+    const { pet } = advance(db, now);
+    const petId = typeof body.petId === "string" && body.petId ? body.petId : pet.id;
+    const kind = body.kind === "farewell" ? "farewell" : "snap";
+    // 最後の場面の写真は 1 匹につき 1 枚
+    if (kind === "farewell" && hasPhotoOfKind(db, petId, "farewell")) return c.json({ skipped: true });
+
+    const caption =
+      typeof body.caption === "string" && body.caption.trim()
+        ? body.caption.trim().slice(0, 60)
+        : (listTimeline(db, petId, { limit: 50 }).find((e) => e.kind === "pet")?.text ?? "");
+    const id = randomUUID();
+    const name = `${id}.png`;
+    fs.mkdirSync(photosDir, { recursive: true });
+    fs.writeFileSync(path.join(photosDir, name), Buffer.from(await file.arrayBuffer()));
+    insertPhoto(db, { id, petId, takenAt: now, caption, file: name, kind });
+    return c.json({ photo: getPhoto(db, id) });
+  });
+
+  app.get("/api/photos/:id/image", (c) => {
+    const photo = getPhoto(db, c.req.param("id"));
+    if (!photo || !photosDir) return c.json({ error: "not_found" }, 404);
+    const file = path.join(photosDir, path.basename(photo.file));
+    if (!fs.existsSync(file)) return c.json({ error: "not_found" }, 404);
+    return new Response(fs.readFileSync(file), {
+      headers: { "content-type": "image/png", "cache-control": "private, max-age=31536000, immutable" },
+    });
+  });
+
+  app.delete("/api/photos/:id", (c) => {
+    const photo = getPhoto(db, c.req.param("id"));
+    if (!photo) return c.json({ error: "not_found" }, 404);
+    deletePhoto(db, photo.id);
+    if (photosDir) fs.rmSync(path.join(photosDir, path.basename(photo.file)), { force: true });
+    return c.json({ ok: true });
+  });
 
   app.post("/api/timeline/read", async (c) => {
     const body = (await c.req.json().catch(() => null)) as { upToId?: unknown } | null;
@@ -213,6 +293,7 @@ export function createApp(db: DB, opts: AppOptions = {}) {
       saveRoom(db, world.room);
       insertEvents(db, pet.id, meta.timezone, result.events);
       if (!idleTalk) saveMeta(db, { ...meta, lastInteractedAt: now, lastSeenAt: now });
+      grantRewards(db, now);
       return result;
     })();
 
@@ -252,6 +333,27 @@ export function createApp(db: DB, opts: AppOptions = {}) {
         return talk(world, now, ctx, action.idle === true);
       case "lights":
         return setLights(world, action.on === true, now, ctx);
+      case "equip": {
+        const slots: WearSlot[] = ["hat", "clothes", "accessory", "hand"];
+        if (!slots.includes(action.slot)) throw new BadRequest("invalid_slot");
+        const itemId = typeof action.itemId === "string" ? action.itemId : null;
+        if (itemId && !owns(db, itemId, "wear")) throw new BadRequest("not_owned");
+        try {
+          return equip(world, action.slot, itemId, now, ctx);
+        } catch {
+          throw new BadRequest("invalid_item");
+        }
+      }
+      case "decorate": {
+        const itemId = typeof action.itemId === "string" ? action.itemId : null;
+        const kind = action.target === "wallpaper" ? "wallpaper" : action.target === "floor" ? "floor" : "furniture";
+        if (itemId && !owns(db, itemId, kind)) throw new BadRequest("not_owned");
+        try {
+          return decorate(world, action.target, itemId, now, ctx);
+        } catch {
+          throw new BadRequest("invalid_item");
+        }
+      }
       case "farewell_seen": {
         // 見たのは先代かもしれないので、ID で探して直接保存する
         const target = world.pet.id === action.petId ? world.pet : getPet(db, String(action.petId));

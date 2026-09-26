@@ -1,4 +1,4 @@
-import type { Pet, RoomState, TimelineEvent } from "@pocco/sim";
+import type { DecorTarget, Pet, RoomState, TimelineEvent, WearSlot } from "@pocco/sim";
 
 export interface InventoryItem {
   itemId: string;
@@ -63,7 +63,23 @@ export type Action =
   | { type: "clean"; litterIds?: string[] }
   | { type: "talk"; idle?: boolean }
   | { type: "lights"; on: boolean }
-  | { type: "farewell_seen"; petId: string };
+  | { type: "farewell_seen"; petId: string }
+  | { type: "equip"; slot: WearSlot; itemId: string | null }
+  | { type: "decorate"; target: DecorTarget; itemId: string | null };
+
+export interface Photo {
+  id: string;
+  petId: string;
+  takenAt: number;
+  caption: string;
+  kind: string;
+}
+
+export interface CollectionState {
+  entries: { category: string; entryId: string; firstAt: number }[];
+  rate: number;
+  rewards: { at: number; itemId: string; kind: string; name: string; granted: boolean }[];
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, init);
@@ -95,6 +111,10 @@ export const api = {
     return request<{ entries: TimelineEntry[]; hasMore: boolean }>(`/api/timeline?${q}`);
   },
   getMemorial: () => request<{ pets: MemorialPet[] }>("/api/memorial"),
+  getCollection: () => request<CollectionState>("/api/collection"),
+  getPhotos: (petId?: string) => request<{ photos: Photo[] }>(`/api/photos${petId ? `?petId=${petId}` : ""}`),
+  deletePhoto: (id: string) => request<{ ok: true }>(`/api/photos/${id}`, { method: "DELETE" }),
+  photoUrl: (id: string) => `/api/photos/${id}/image`,
   markRead: (upToId: number) => postJson<{ unread: number }>("/api/timeline/read", { upToId }),
   debugAdvance: (minutes: number) => postJson<GameState>("/api/debug/advance", { minutes }),
 };
