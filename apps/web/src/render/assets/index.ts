@@ -1,6 +1,6 @@
 // 素材の一覧（仕様書 5.2・D13）。
 // 素材は 1 つずつ個別のファイルにして、フォルダごとに自動で読み込む。ファイル名（拡張子なし）が ID。
-// 新しい家具・着せ替え・飾りなどを足すときは、対応するフォルダに `<ID>.ts` を 1 つ置いて
+// 新しい家具・着せ替え・食べ物・拾い物・飾りなどを足すときは、対応するフォルダに `<ID>.ts` を 1 つ置いて
 // `export default` で絵を書くだけでよい（sim 側の一覧にも ID を足すこと。テストで抜けを確かめている）。
 
 import type { Feature } from "@pocco/sim";
@@ -38,6 +38,10 @@ export const WALLPAPER_PATTERNS = byId(import.meta.glob<PatternArt>("./room/wall
 export const FLOOR_PATTERNS = byId(import.meta.glob<PatternArt>("./room/floor/*.ts", { eager: true, import: "default" }));
 export const ROOM_PARTS = byId(import.meta.glob<RoomPartArt>("./room/*.ts", { eager: true, import: "default" })) as Record<"window" | "fridge" | "bed" | "rug", RoomPartArt>;
 export const LITTER = byId(import.meta.glob<Sprite>("./litter/*.ts", { eager: true, import: "default" }));
+
+// 持ち物のアイコン
+export const FOOD_SPRITES = byId(import.meta.glob<Sprite>("./food/*.ts", { eager: true, import: "default" }));
+export const TREASURE_SPRITES = byId(import.meta.glob<Sprite>("./treasure/*.ts", { eager: true, import: "default" }));
 
 // 小物・演出
 export { default as NOTE } from "./objects/note.ts";

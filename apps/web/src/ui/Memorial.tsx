@@ -4,6 +4,7 @@ import { api, type MemorialPet, type Photo, type TimelineEntry } from "../api.ts
 import { useStore } from "../store.ts";
 import { formatClock } from "../time.ts";
 import { PetPortrait } from "./PetPortrait.tsx";
+import { ItemIcon } from "./ItemIcon.tsx";
 import { daysLived, eventIcon } from "./labels.ts";
 
 const TRAITS: Record<string, [string, string]> = {
@@ -102,8 +103,21 @@ function MemorialDetail({ pet, onBack }: { pet: MemorialPet; onBack: () => void 
       <div className="card memorial-facts">
         <div>せいかく: {traits(pet.personality)}</div>
         <div>しゅみ: {pet.hobbies.length ? pet.hobbies.map((h) => getHobby(h)?.name).join("・") : "なし"}</div>
-        <div>好きだった食べ物: {food ? `${food.icon} ${food.name}` : "—"}</div>
-        {keepsake && <div>形見: {keepsake.icon} {keepsake.name}</div>}
+        <div>
+          好きだった食べ物:{" "}
+          {food ? (
+            <>
+              <ItemIcon kind="food" id={food.id} size={16} fallback={food.icon} inline /> {food.name}
+            </>
+          ) : (
+            "—"
+          )}
+        </div>
+        {keepsake && (
+          <div>
+            形見: <ItemIcon kind="treasure" id={keepsake.id} size={16} fallback={keepsake.icon} inline /> {keepsake.name}
+          </div>
+        )}
       </div>
 
       {pet.lastWords && (

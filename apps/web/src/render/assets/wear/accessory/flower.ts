@@ -6,10 +6,12 @@ export default {
   anchor: "headLeft",
   sprite: {
     rows: [
-      ".p.",
-      "pyp",
-      ".p.",
+      "..p..",
+      ".pPp.",
+      "pPyPp",
+      ".pPp.",
+      "..p..",
     ],
-    colors: { p: "#ffffff", y: "#ffd24d" },
+    colors: { p: "#f4a6c0", P: "#ffffff", y: "#ffd24d" },
   },
 } satisfies AccessoryArt;

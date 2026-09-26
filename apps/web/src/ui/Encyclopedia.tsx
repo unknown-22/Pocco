@@ -11,6 +11,7 @@ import {
 import { api, type CollectionState } from "../api.ts";
 import { useStore } from "../store.ts";
 import { PetPortrait } from "./PetPortrait.tsx";
+import { ItemIcon } from "./ItemIcon.tsx";
 
 interface Entry {
   id: string;
@@ -89,6 +90,8 @@ export function Encyclopedia() {
             <button key={e.id} className={`food zukan-cell${known ? "" : " is-unknown"}`} onClick={() => setSelected(e)}>
               {e.speciesId ? (
                 <PetPortrait speciesId={e.speciesId} stage={SPECIES.find((s) => s.id === e.speciesId)!.stage} silhouette={!known} scale={1.6} />
+              ) : known && (category === "food" || category === "treasure") ? (
+                <ItemIcon kind={category} id={e.id} fallback={e.icon} />
               ) : (
                 <span className="food-icon" aria-hidden>{known ? e.icon : "？"}</span>
               )}

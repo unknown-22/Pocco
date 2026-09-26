@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { FLOORS, FURNITURE, SPECIES, WALLPAPERS, WEARABLES } from "@pocco/sim";
+import { FLOORS, FOODS, FURNITURE, SPECIES, TREASURES, WALLPAPERS, WEARABLES } from "@pocco/sim";
+import { iconSprite } from "./icons.ts";
 import { blink, type Sprite } from "./sprite.ts";
 import * as A from "./assets/index.ts";
 
@@ -17,6 +18,8 @@ describe("素材のスプライト", () => {
     ["HEART", A.HEART],
     ["ANGER", A.ANGER],
     ...Object.entries(A.LITTER),
+    ...Object.entries(A.FOOD_SPRITES),
+    ...Object.entries(A.TREASURE_SPRITES),
     ...Object.entries(A.FEATURES),
     ...Object.entries(A.FURNITURE_SPRITES),
     ...Object.entries(A.HAT_SPRITES),
@@ -69,6 +72,14 @@ describe("素材ファイルと sim の一覧が一致する", () => {
   });
   it("部屋の固定の家具", () => same(A.ROOM_PARTS, ["window", "fridge", "bed", "rug"]));
   it("散らかり", () => same(A.LITTER, ["paper", "toy", "crumb"]));
+  it("食べ物", () => same(A.FOOD_SPRITES, FOODS.map((f) => f.id)));
+  it("拾い物", () => same(A.TREASURE_SPRITES, TREASURES.map((t) => t.id)));
+  it("持ち物はすべてドット絵のアイコンになる", () => {
+    for (const f of FOODS) expect(iconSprite("food", f.id), f.id).toBeDefined();
+    for (const t of TREASURES) expect(iconSprite("treasure", t.id), t.id).toBeDefined();
+    for (const w of WEARABLES) expect(iconSprite("wear", w.id), w.id).toBeDefined();
+    for (const f of FURNITURE) expect(iconSprite("furniture", f.id), f.id).toBeDefined();
+  });
   it("種族（たまご以外はすべて形のファイルがある）", () =>
     same(A.SPECIES_ART, SPECIES.filter((s) => s.id !== "egg").map((s) => s.id)));
   it("動き", () => same(A.POSES, ["idle", "walk", "eat", "sleep", "happy", "angry", "play"]));

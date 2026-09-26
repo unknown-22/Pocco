@@ -508,3 +508,8 @@ button { font: inherit; color: inherit; }
 .game-result { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 40px 16px; text-align: center; }
 .game-result-title { font-size: 26px; margin: 0; }
 .game-result-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
+
+/* 持ち物のドット絵アイコン */
+.item-icon { display: inline-flex; align-items: center; justify-content: center; flex: none; font-size: 26px; line-height: 1; }
+.item-icon canvas { image-rendering: pixelated; display: block; }
+.item-icon.is-inline { vertical-align: middle; font-size: 1em; }
