@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import Database from "better-sqlite3";
+import { FOODS } from "@pocco/sim";
 import { openDb } from "../src/db.ts";
 import { createApp } from "../src/app.ts";
 import { advance } from "../src/world.ts";
@@ -190,7 +191,10 @@ describe("P2 おせわ", () => {
 
   it("持っていない食べ物はあげられない", async () => {
     const { app } = await hatched();
-    const res = await act(app, { type: "feed", foodId: "curry" });
+    // おすそわけはランダムなので、持っていないものを探す
+    const owned = new Set((await getJson(app, "/api/state")).inventory.map((i: { itemId: string }) => i.itemId));
+    const missing = FOODS.find((f) => !owned.has(f.id))!;
+    const res = await act(app, { type: "feed", foodId: missing.id });
     expect(res.status).toBe(400);
     expect((await res.json()).error).toBe("out_of_stock");
   });
