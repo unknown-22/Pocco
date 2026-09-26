@@ -26,6 +26,10 @@ export const ACTIVITY_LABEL: Record<ActivityType, string> = {
 export const EVENT_ICON: Record<string, string> = {
   sleep: "💤",
   nap: "💤",
+  sleep_start: "🛏️",
+  sleep_end: "☀️",
+  nap_start: "💤",
+  nap_end: "🥱",
   eat: "🍙",
   play: "🎾",
   window: "🪟",

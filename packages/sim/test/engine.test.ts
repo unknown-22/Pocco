@@ -46,14 +46,25 @@ describe("simulate", () => {
     expect(w).toEqual(before);
   });
 
-  it("夜は寝ていて、日記に睡眠が残る", () => {
+  it("夜は寝ていて、寝たときと起きたときの両方が日記に残る", () => {
     const { events } = simulate(newWorld(), START + 2 * DAY, { timezone: TZ, lastSeenAt: START });
-    const sleeps = events.filter((e) => e.eventId === "sleep");
-    expect(sleeps.length).toBeGreaterThanOrEqual(1);
-    for (const s of sleeps) {
+    const starts = events.filter((e) => e.eventId === "sleep_start");
+    const ends = events.filter((e) => e.eventId === "sleep_end");
+    expect(starts.length).toBeGreaterThanOrEqual(1);
+    expect(ends.length).toBe(starts.length);
+    starts.forEach((s, i) => {
       const h = localHour(s.at, TZ);
       expect(h >= 20 || h < 3).toBe(true);
-      expect(s.endAt! - s.at).toBeGreaterThan(5 * HOUR);
+      expect(ends[i]!.at - s.at).toBeGreaterThan(5 * HOUR);
+      expect(ends[i]!.text).toMatch(/時間/);
+    });
+  });
+
+  it("起きた記録は、同時刻に起きたほかの出来事より前に並ぶ", () => {
+    const { events } = simulate(newWorld(), START + 3 * DAY, { timezone: TZ, lastSeenAt: START });
+    for (const end of events.filter((e) => e.eventId.endsWith("_end"))) {
+      const sameTime = events.filter((e) => e.at === end.at);
+      expect(sameTime[0]).toBe(end);
     }
   });
 

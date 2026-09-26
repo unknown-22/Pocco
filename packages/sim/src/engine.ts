@@ -43,8 +43,19 @@ export interface SimResult {
   events: TimelineEvent[];
 }
 
-/** 終わったときに期間つきで日記に書く行動 */
-const LOGGED_ON_END = new Set<ActivityType>(["sleep", "nap", "play", "window"]);
+/** 時間のかかる行動。始まったときと終わったときの両方を日記に書く */
+const LONG_ACTIVITIES = new Set<ActivityType>(["sleep", "nap"]);
+/** 始まったときに 1 件だけ日記に書く行動 */
+const LOGGED_ON_START = new Set<ActivityType>(["play", "window"]);
+
+/** 「8時間」「40分」「1時間20分」 */
+export function formatDuration(ms: number): string {
+  const total = Math.round(ms / MINUTE);
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (h === 0) return `${m}分`;
+  return m === 0 ? `${h}時間` : `${h}時間${m}分`;
+}
 
 const clamp = (v: number) => Math.max(0, Math.min(100, v));
 
@@ -98,14 +109,21 @@ function tick(
   const absent = t - ctx.lastSeenAt > ABSENT_AFTER_MS;
   const night = hour >= 19 || hour < 5;
 
-  const log = (eventId: string, importance: Importance, extra: Partial<TimelineEvent> = {}, spot?: Spot) => {
+  let sink = emit;
+  const log = (
+    eventId: string,
+    importance: Importance,
+    extra: Partial<TimelineEvent> = {},
+    spot?: Spot,
+    duration?: string,
+  ) => {
     const lonely = s.needs.loneliness > 60;
-    emit({
+    sink({
       at: t,
       eventId,
       importance,
       kind: "pet",
-      text: pickText(eventId, { state: s, night, lonely, spot }, rng),
+      text: pickText(eventId, { state: s, night, lonely, spot, duration }, rng),
       ...extra,
     });
   };
@@ -150,15 +168,28 @@ function tick(
   }
   if (!done) return;
 
+  // 次の行動を選ぶ間に起きた出来事は、終わった行動の記録のあとに並べる
+  const during: TimelineEvent[] = [];
+  sink = (e) => during.push(e);
   chooseNext(t);
+  sink = emit;
+  const next = s.activity;
 
-  // 同じ行動が続いたら 1 つにまとめる（仕様書 9.2）。違えば終わった行動を日記に書く
-  if (LOGGED_ON_END.has(act.type)) {
-    if (s.activity.type === act.type) {
-      s.activity.since = act.since;
-    } else {
-      log(act.type, "normal", { at: act.since, endAt: t }, act.spot);
-    }
+  // 同じ行動が続いたら 1 つにまとめる（仕様書 9.2）
+  if (next.type === act.type && (LONG_ACTIVITIES.has(act.type) || LOGGED_ON_START.has(act.type))) {
+    next.since = act.since;
+    during.forEach(emit);
+    return;
+  }
+  // 時間のかかる行動は、終わったときにも書く
+  if (LONG_ACTIVITIES.has(act.type)) {
+    log(`${act.type}_end`, "normal", {}, act.spot, formatDuration(t - act.since));
+  }
+  during.forEach(emit);
+  if (LONG_ACTIVITIES.has(next.type)) {
+    log(`${next.type}_start`, "normal", {}, next.spot);
+  } else if (LOGGED_ON_START.has(next.type)) {
+    log(next.type, "normal", {}, next.spot);
   }
 
   // --- 次の行動を選ぶ ---

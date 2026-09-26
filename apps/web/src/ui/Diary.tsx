@@ -82,7 +82,7 @@ function AbsenceSummary({
 }) {
   const count = (...ids: string[]) => entries.filter((e) => ids.includes(e.eventId)).length;
   const stats = [
-    { label: "眠った", n: count("sleep", "nap"), unit: "回" },
+    { label: "眠った", n: count("sleep_start", "nap_start", "sleep", "nap"), unit: "回" },
     { label: "冷蔵庫", n: count("eat"), unit: "回" },
     { label: "遊んだ", n: count("play"), unit: "回" },
     { label: "見つけた物", n: count("find"), unit: "個" },

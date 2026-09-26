@@ -8,22 +8,29 @@ export interface TextContext {
   night: boolean;
   lonely: boolean;
   spot?: string;
+  duration?: string;
 }
 
 type Variant = { when?: (c: TextContext) => boolean; texts: string[] };
 
 const T: Record<string, Variant[]> = {
-  sleep: [
-    { when: (c) => c.state.personality.chronotype > 40, texts: ["夜ふかしのあと、やっと眠った。"] },
-    { texts: ["ぐっすり眠っていた。", "すやすや眠った。", "ベッドで丸くなって眠っていた。"] },
+  sleep_start: [
+    { when: (c) => c.state.personality.chronotype > 40, texts: ["夜ふかしして、やっとベッドに入った。"] },
+    { texts: ["ベッドに入った。", "あくびをして、ベッドにもぐりこんだ。", "ベッドで丸くなった。おやすみ。"] },
   ],
-  nap: [
-    { texts: ["{spot}で昼寝をしていた。", "{spot}でうとうとしていた。", "{spot}で寝落ちしていた。"] },
+  sleep_end: [
+    { texts: ["目をさました。（{duration}眠っていた）", "のびをして起きた。（{duration}眠っていた）", "ベッドから起き出した。（{duration}眠っていた）"] },
+  ],
+  nap_start: [
+    { texts: ["{spot}でうとうとしはじめた。", "{spot}で寝落ちした。", "{spot}で昼寝をはじめた。"] },
+  ],
+  nap_end: [
+    { texts: ["昼寝から起きた。（{duration}）", "むくっと起き上がった。（{duration}昼寝していた）"] },
   ],
   play: [
-    { when: (c) => c.state.personality.energy < -30, texts: ["ゆっくり積み木を積んでいた。", "ラグの上でごろごろ転がっていた。"] },
-    { when: (c) => c.state.personality.energy > 30, texts: ["部屋じゅうを全力で走り回っていた。", "ベッドの上で何度もジャンプしていた。"] },
-    { texts: ["ひとりでボール遊びをしていた。", "しっぽを追いかけてぐるぐる回っていた。", "クッションと相撲をとっていた。"] },
+    { when: (c) => c.state.personality.energy < -30, texts: ["ゆっくり積み木を積みはじめた。", "ラグの上でごろごろ転がりはじめた。"] },
+    { when: (c) => c.state.personality.energy > 30, texts: ["部屋じゅうを全力で走り回りはじめた。", "ベッドの上でジャンプしはじめた。"] },
+    { texts: ["ひとりでボール遊びをはじめた。", "しっぽを追いかけてぐるぐる回りはじめた。", "クッションと相撲をとりはじめた。"] },
   ],
   window: [
     { when: (c) => c.lonely && c.state.personality.attachment > 10, texts: ["窓の外をずっと見ていた。帰りを待っていたのかも。", "窓に顔をくっつけて、外をじっと見ていた。"] },
@@ -70,5 +77,7 @@ export function pickText(eventId: string, ctx: TextContext, rng: Rng): string {
   if (!variants) return eventId;
   const variant = variants.find((v) => !v.when || v.when(ctx)) ?? variants[variants.length - 1]!;
   const text = variant.texts[Math.floor(rng() * variant.texts.length)]!;
-  return text.replace("{spot}", SPOT_LABEL[ctx.spot ?? "floor"] ?? "床の上");
+  return text
+    .replace("{spot}", SPOT_LABEL[ctx.spot ?? "floor"] ?? "床の上")
+    .replace("{duration}", ctx.duration ?? "");
 }
