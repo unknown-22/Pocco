@@ -1,0 +1,52 @@
+import type { Pet, PetState, RoomState } from "./types.ts";
+import { createRng, hashSeed, randInt } from "./rng.ts";
+
+/** 新しいたまごを作る。性格はシードから決まる小さなばらつきを持つ。 */
+export function createPet(opts: {
+  id: string;
+  name: string;
+  now: number;
+  generation?: number;
+  parentId?: string | null;
+}): Pet {
+  const rng = createRng(hashSeed(opts.id, "birth"));
+  const jitter = () => randInt(rng, -10, 10);
+  const state: PetState = {
+    stage: "egg",
+    speciesId: "egg",
+    needs: { hunger: 20, sleepiness: 0, boredom: 10, loneliness: 0 },
+    personality: {
+      energy: jitter(),
+      tidiness: jitter(),
+      curiosity: jitter(),
+      attachment: jitter(),
+      appetite: jitter(),
+      chronotype: jitter(),
+    },
+    foodPrefs: {},
+    hobbies: [],
+    activity: { type: "idle", since: opts.now },
+    equipped: {},
+    lifespanModifier: 0,
+    stats: {},
+  };
+  return {
+    id: opts.id,
+    generation: opts.generation ?? 1,
+    parentId: opts.parentId ?? null,
+    name: opts.name,
+    bornAt: opts.now,
+    diedAt: null,
+    state,
+  };
+}
+
+export function createRoom(): RoomState {
+  return {
+    mess: 0,
+    wallpaperId: "wall_cream",
+    floorId: "floor_wood",
+    furniture: { slot_1: "bed", slot_2: "fridge", slot_3: "window" },
+    litter: [],
+  };
+}

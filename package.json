@@ -1,0 +1,21 @@
+{
+  "name": "pocco",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,web -c cyan,magenta \"npm run dev -w @pocco/server\" \"npm run dev -w @pocco/web\"",
+    "build": "npm run typecheck && npm run build -w @pocco/web",
+    "start": "npm run start -w @pocco/server",
+    "typecheck": "tsc -p packages/sim && tsc -p apps/server && tsc -p apps/web",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.2"
+  }
+}
