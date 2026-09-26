@@ -115,4 +115,20 @@ describe("simulate", () => {
     }
     expect(count).toBe(0);
   });
+
+  it("孵化・進化・シニアの節目が、見るまで ceremonies にたまる（最期の日は入れない・4 つまで）", () => {
+    const early = simulate(newWorld(), START + 2 * HOUR, { timezone: TZ, lastSeenAt: START });
+    expect(early.world.pet.state.ceremonies).toEqual([
+      expect.objectContaining({ kind: "hatch", stage: "baby", fromSpecies: "egg", fromStage: "egg", toSpecies: "pocco" }),
+    ]);
+
+    const { world } = simulate(newWorld(), START + 13 * DAY + 12 * HOUR, { timezone: TZ, lastSeenAt: START });
+    const list = world.pet.state.ceremonies;
+    // 孵化・こども・ティーン・おとな・シニア の 5 つのうち、新しい 4 つ
+    expect(list.map((c) => c.kind)).toEqual(["evolve", "evolve", "evolve", "senior"]);
+    expect(list.map((c) => c.stage)).toEqual(["child", "teen", "adult", "senior"]);
+    expect(list[1]!.fromSpecies).toBe(list[0]!.toSpecies);
+    expect(list[3]!.fromSpecies).toBe(list[3]!.toSpecies);
+    expect(world.pet.state.stage).toBe("final_day");
+  });
 });

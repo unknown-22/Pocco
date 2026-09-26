@@ -76,6 +76,7 @@ export type Action =
   | { type: "talk"; idle?: boolean }
   | { type: "lights"; on: boolean }
   | { type: "farewell_seen"; petId: string }
+  | { type: "ceremony_seen"; at: number }
   | { type: "equip"; slot: WearSlot; itemId: string | null }
   | { type: "decorate"; target: DecorTarget; itemId: string | null }
   | { type: "play"; game: GameId; score: number; success: boolean };
@@ -99,6 +100,8 @@ export function createApp(db: DB, opts: AppOptions = {}) {
     unread: unreadCount(db, pet.id),
     pendingFarewell: pendingFarewell(),
     pendingSelfies: pendingSelfies(),
+    // 旅立ったあとは、見ていなかった節目は出さない
+    pendingCeremony: pet.diedAt === null ? (pet.state.ceremonies[0] ?? null) : null,
     absence: meta.absence,
     debug: Boolean(opts.debug),
     ...(reaction ? { reaction } : {}),
@@ -389,6 +392,13 @@ export function createApp(db: DB, opts: AppOptions = {}) {
         const score = Number(action.score);
         if (!Number.isFinite(score) || score < 0 || score > 100) throw new BadRequest("invalid_score");
         return play(world, action.game, { score, success: action.success === true }, now, ctx);
+      }
+      case "ceremony_seen": {
+        // 見た節目の演出を消す（二重に送られても、なければ何もしない）
+        const list = world.pet.state.ceremonies;
+        const i = list.findIndex((c) => c.at === Number(action.at));
+        if (i >= 0) list.splice(i, 1);
+        return { bubble: "", reaction: "none", events: [] };
       }
       case "farewell_seen": {
         // 見たのは先代かもしれないので、ID で探して直接保存する

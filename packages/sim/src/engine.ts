@@ -75,6 +75,9 @@ const LOGGED_ON_START = new Set<ActivityType>(["play", "window", "hobby"]);
 /** 散歩に出るのは、最後に見てからこれだけ経ったとき（仕様書 10.6） */
 export const WALK_AFTER_ABSENT_MS = 2 * HOUR;
 
+/** 見ていない節目の演出をためておく数（長く留守にしても、最近のものだけ見せる） */
+export const MAX_PENDING_CEREMONIES = 4;
+
 /** 写真になるのを待っている自撮りの上限 */
 export const MAX_PENDING_SELFIES = 3;
 
@@ -106,6 +109,7 @@ export function normalizePet(pet: Pet): Pet {
   s.treasures ??= [];
   s.inheritedHobbies ??= [];
   s.selfies ??= [];
+  s.ceremonies ??= [];
   if (!s.activity?.type) s.activity = { type: "idle", since: 0 };
   if (s.stage === "egg") s.activity = { ...s.activity, type: "egg" };
   if (Object.keys(s.foodPrefs).length === 0) s.foodPrefs = innateFoodPrefs(pet.id);
@@ -195,9 +199,16 @@ function tick(
   }
   if (stage !== s.stage) {
     const from = s.stage;
+    const fromSpecies = s.speciesId;
     s.stage = stage;
     s.speciesId = from === "egg" ? "pocco" : speciesForStage(stage, s.speciesId, s.personality);
     const species = getSpecies(s.speciesId);
+    // 全画面の演出で見せる節目（最期の日は旅立ちの演出があるので入れない）
+    const kind = from === "egg" ? "hatch" : stage === "senior" ? "senior" : stage === "final_day" ? null : "evolve";
+    if (kind) {
+      s.ceremonies.push({ kind, at: t, stage, fromStage: from, fromSpecies: from === "egg" ? "egg" : fromSpecies, toSpecies: s.speciesId });
+      if (s.ceremonies.length > MAX_PENDING_CEREMONIES) s.ceremonies.shift();
+    }
     if (from === "egg") {
       s.activity = { type: "idle", since: t, until: t + TICK_MS, spot: "rug" };
       log("hatch", "major");

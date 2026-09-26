@@ -48,6 +48,7 @@ export function createPet(opts: {
     treasures: [],
     inheritedHobbies: [],
     selfies: [],
+    ceremonies: [],
   };
   return {
     id: opts.id,

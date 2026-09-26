@@ -299,6 +299,36 @@ describe("P3 一生と世代交代", () => {
   });
 });
 
+describe("節目の演出", () => {
+  it("孵化すると演出を見るまで pendingCeremony に出て、ceremony_seen で消える", async () => {
+    const { app, advance } = setup();
+    expect((await getJson(app, "/api/state")).pendingCeremony).toBeNull();
+    advance(2 * HOUR);
+    const s = await getJson(app, "/api/state");
+    expect(s.pendingCeremony).toMatchObject({ kind: "hatch", stage: "baby", toSpecies: "pocco" });
+    const act = (at: unknown) =>
+      post(app, "/api/actions", { clientActionId: crypto.randomUUID(), action: { type: "ceremony_seen", at } });
+    expect((await (await act(123)).json()).pendingCeremony).not.toBeNull();
+    const after = await (await act(s.pendingCeremony.at)).json();
+    expect(after.pendingCeremony).toBeNull();
+    expect(after.pet.state.ceremonies).toEqual([]);
+  });
+
+  it("旅立ったあとは、見ていなかった節目を出さない", async () => {
+    const { app, advance } = setup();
+    await app.request("/api/state");
+    // 誰も来ないまま、旅立つ直前まで（シニアの節目は見ていない）
+    advance(13 * DAY);
+    let s = await (await post(app, "/api/debug/advance", { minutes: 60 })).json();
+    expect(s.pendingCeremony).not.toBeNull();
+    // 旅立った直後（次のたまごが来る前）
+    for (let i = 0; i < 48 && s.pet.diedAt === null; i++) s = await (await post(app, "/api/debug/advance", { minutes: 60 })).json();
+    expect(s.pet.diedAt).not.toBeNull();
+    expect(s.pet.state.ceremonies.length).toBeGreaterThan(0);
+    expect(s.pendingCeremony).toBeNull();
+  });
+});
+
 describe("nextEggTime", () => {
   const tz = "Asia/Tokyo";
   const jst = (d: number, h: number, m = 0) => Date.UTC(2026, 0, d, h - 9, m);

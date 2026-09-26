@@ -11,6 +11,7 @@ import { StatusSheet } from "./ui/StatusSheet.tsx";
 import { CollectionTab } from "./ui/CollectionTab.tsx";
 import { Farewell } from "./ui/Farewell.tsx";
 import { useSelfies } from "./ui/useSelfies.ts";
+import { Ceremony } from "./ui/Ceremony.tsx";
 
 const POLL_MS = 30_000;
 
@@ -57,7 +58,11 @@ export function App() {
             <TabBar />
             {sheet === "food" && <FoodSheet />}
             {sheet === "status" && <StatusSheet />}
-            {game.pendingFarewell && <Farewell key={game.pendingFarewell.petId} farewell={game.pendingFarewell} />}
+            {game.pendingFarewell ? (
+              <Farewell key={game.pendingFarewell.petId} farewell={game.pendingFarewell} />
+            ) : (
+              game.pendingCeremony && <Ceremony key={game.pendingCeremony.at} ceremony={game.pendingCeremony} name={pet.name} />
+            )}
           </>
         )}
       </div>

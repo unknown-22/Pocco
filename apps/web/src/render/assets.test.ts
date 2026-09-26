@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { FLOORS, FOODS, FURNITURE, SPECIES, TREASURES, WALLPAPERS, WEARABLES } from "@pocco/sim";
 import { iconSprite } from "./icons.ts";
+import { poseFrame } from "./pet.ts";
 import { blink, type Sprite } from "./sprite.ts";
 import * as A from "./assets/index.ts";
 
@@ -125,6 +126,12 @@ describe("種族ごとの体と動き", () => {
     const counts = new Map<string, number>();
     for (const k of keys) counts.set(k, (counts.get(k) ?? 0) + 1);
     expect(Math.max(...counts.values())).toBeLessThanOrEqual(2);
+  });
+
+  it("どの時刻でも（負の時刻でも）動きのコマが決まる", () => {
+    for (const pose of Object.keys(A.POSES) as A.PoseName[]) {
+      for (const t of [-1, -999, 0, 123, 1e9]) expect(poseFrame(pose, t), `${pose} ${t}`).toBeDefined();
+    }
   });
 
   it("寝ているときは目を閉じ、喜ぶときは跳ねる", () => {

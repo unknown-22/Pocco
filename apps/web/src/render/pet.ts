@@ -36,7 +36,9 @@ const MARKS = { heart: HEART, anger: ANGER };
 /** その時刻の動きのコマ */
 export function poseFrame(pose: PoseName, t: number): PoseFrame {
   const art = POSES[pose] ?? POSES.idle;
-  return art.frames[Math.floor(t / art.frameMs) % art.frames.length]!;
+  const n = art.frames.length;
+  // 負の時刻でも正しいコマになるように
+  return art.frames[((Math.floor(t / art.frameMs) % n) + n) % n]!;
 }
 
 /** まばたきする動きか */

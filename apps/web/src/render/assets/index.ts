@@ -50,6 +50,7 @@ export { default as ZZZ } from "./effects/zzz.ts";
 export { default as SPARKLE } from "./effects/sparkle.ts";
 export { default as HEART } from "./effects/heart.ts";
 export { default as ANGER } from "./effects/anger.ts";
+export { default as LIGHT } from "./effects/light.ts";
 
 // ミニゲーム
 export { default as SNACK } from "./minigame/snack.ts";

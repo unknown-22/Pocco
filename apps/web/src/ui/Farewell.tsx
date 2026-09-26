@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
-import { localParts } from "@pocco/sim";
+import { useEffect, useRef, useState } from "react";
+import { localParts, type RoomState } from "@pocco/sim";
 import type { PendingFarewell } from "../api.ts";
 import { useStore } from "../store.ts";
-import { PetPortrait } from "./PetPortrait.tsx";
+import { CLOSING_MS, LIGHT_MS, drawFarewell, type FarewellPhase } from "../render/scenes/farewell.ts";
+import { ROOM_SIZE } from "../render/room.ts";
 import { composeFarewellScene, uploadPhoto } from "../photo.ts";
 import { daysLived } from "./labels.ts";
 
@@ -46,11 +47,11 @@ export function Farewell({ farewell }: { farewell: PendingFarewell }) {
 
   useEffect(() => {
     if (step === "closing") {
-      const id = setTimeout(() => setStep("light"), 3500);
+      const id = setTimeout(() => setStep("light"), CLOSING_MS);
       return () => clearTimeout(id);
     }
     if (step === "light") {
-      const id = setTimeout(() => setStep("summary"), 4000);
+      const id = setTimeout(() => setStep("summary"), LIGHT_MS + 600);
       return () => clearTimeout(id);
     }
   }, [step]);
@@ -95,15 +96,51 @@ export function Farewell({ farewell }: { farewell: PendingFarewell }) {
 
   return (
     <div className={`farewell ${step === "words" ? "is-dim" : "is-dark"}`} role="dialog" aria-label="旅立ち">
-      <div className={`farewell-pet${step === "light" ? " is-gone" : ""}`}>
-        <PetPortrait speciesId={farewell.speciesId} stage="departed" eyesClosed={step !== "words"} scale={5} />
-      </div>
-      {step === "light" && <div className="farewell-light" aria-hidden />}
+      <FarewellScene room={room} speciesId={farewell.speciesId} phase={step as FarewellPhase} />
       <div className="farewell-lines pixel">
         {lines.slice(0, shown).map((l, i) => (
           <p key={i} className="farewell-line">{l}</p>
         ))}
       </div>
     </div>
+  );
+}
+
+/** 夕方の部屋で目を閉じ、暗くなって、光の玉が窓の外へ消えていく（ドット絵の場面） */
+function FarewellScene({ room, speciesId, phase }: { room: RoomState; speciesId: string; phase: FarewellPhase }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const [scale, setScale] = useState(2);
+
+  // 画面に収まる整数倍（最大 3 倍）
+  useEffect(() => {
+    const fit = () => setScale(Math.max(1, Math.min(3, Math.floor((window.innerWidth - 32) / ROOM_SIZE))));
+    fit();
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  }, []);
+
+  useEffect(() => {
+    const ctx = ref.current?.getContext("2d");
+    if (!ctx) return;
+    ctx.imageSmoothingEnabled = false;
+    const start = performance.now();
+    let raf = 0;
+    const frame = (now: number) => {
+      drawFarewell(ctx, room, speciesId, phase, Math.max(0, now - start));
+      raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(raf);
+  }, [room, speciesId, phase]);
+
+  return (
+    <canvas
+      ref={ref}
+      width={ROOM_SIZE}
+      height={ROOM_SIZE}
+      className="farewell-scene"
+      style={{ width: ROOM_SIZE * scale, height: ROOM_SIZE * scale }}
+      aria-hidden
+    />
   );
 }
