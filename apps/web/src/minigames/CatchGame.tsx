@@ -56,7 +56,8 @@ export function CatchGame({ pet, speed, onFinish }: { pet: Pet; speed: number; o
         }
         drawItem(ctx, it, y, p);
       }
-      drawPet(ctx, { speciesId: pet.state.speciesId, stage: pet.state.stage, equipped: pet.state.equipped }, x, 117, p);
+      const moving = Math.abs(dx) > 0.5;
+      drawPet(ctx, { speciesId: pet.state.speciesId, stage: pet.state.stage, equipped: pet.state.equipped, pose: moving ? "walk" : "idle", t }, x, 117, p);
 
       setLeft(Math.max(0, CATCH.durationMs - t));
       if (t >= CATCH.durationMs) {

@@ -5,6 +5,8 @@
 
 import type { Feature } from "@pocco/sim";
 import type { AccessoryArt, ClothesArt, PatternArt, RoomPartArt, Sprite } from "../sprite.ts";
+import type { SpeciesArt } from "./pet/body.ts";
+import type { PoseArt, PoseName } from "./pet/pose.ts";
 
 /** import.meta.glob の結果を「ファイル名 → 中身」にする */
 function byId<T>(modules: Record<string, T>): Record<string, T> {
@@ -17,7 +19,10 @@ function byId<T>(modules: Record<string, T>): Record<string, T> {
 
 // ペット
 export const FEATURES = byId(import.meta.glob<Sprite>("./pet/features/*.ts", { eager: true, import: "default" })) as Record<Exclude<Feature, "none">, Sprite>;
-export { bodySprite } from "./pet/body.ts";
+export const SPECIES_ART = byId(import.meta.glob<SpeciesArt>("./pet/species/*.ts", { eager: true, import: "default" }));
+export const POSES = byId(import.meta.glob<PoseArt>("./pet/poses/*.ts", { eager: true, import: "default" })) as Record<PoseName, PoseArt>;
+export { bodySprite, type SpeciesArt, type Eyes, type Mouth } from "./pet/body.ts";
+export type { PoseArt, PoseFrame, PoseName } from "./pet/pose.ts";
 export { default as EGG } from "./pet/egg.ts";
 export { default as GLASSES } from "./pet/glasses.ts";
 
@@ -39,6 +44,8 @@ export { default as NOTE } from "./objects/note.ts";
 export { default as KEEPSAKE } from "./objects/keepsake.ts";
 export { default as ZZZ } from "./effects/zzz.ts";
 export { default as SPARKLE } from "./effects/sparkle.ts";
+export { default as HEART } from "./effects/heart.ts";
+export { default as ANGER } from "./effects/anger.ts";
 
 // ミニゲーム
 export { default as SNACK } from "./minigame/snack.ts";

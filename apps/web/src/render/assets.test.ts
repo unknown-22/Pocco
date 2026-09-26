@@ -14,6 +14,8 @@ describe("素材のスプライト", () => {
     ["SNACK", A.SNACK],
     ["PAPER", A.PAPER],
     ["NOTE_SPRITE", A.NOTE_SPRITE],
+    ["HEART", A.HEART],
+    ["ANGER", A.ANGER],
     ...Object.entries(A.LITTER),
     ...Object.entries(A.FEATURES),
     ...Object.entries(A.FURNITURE_SPRITES),
@@ -67,4 +69,57 @@ describe("素材ファイルと sim の一覧が一致する", () => {
   });
   it("部屋の固定の家具", () => same(A.ROOM_PARTS, ["window", "fridge", "bed", "rug"]));
   it("散らかり", () => same(A.LITTER, ["paper", "toy", "crumb"]));
+  it("種族（たまご以外はすべて形のファイルがある）", () =>
+    same(A.SPECIES_ART, SPECIES.filter((s) => s.id !== "egg").map((s) => s.id)));
+  it("動き", () => same(A.POSES, ["idle", "walk", "eat", "sleep", "happy", "angry", "play"]));
+});
+
+describe("種族ごとの体と動き", () => {
+  const stagesOf = (stage: string) => (stage === "adult" ? ["adult", "senior", "final_day"] : [stage]);
+  it.each(SPECIES.filter((s) => s.id !== "egg").map((s) => [s.id, s.stage] as const))(
+    "%s はどの段階・動きのコマも、全行が同じ幅で未定義の文字がない",
+    (id, speciesStage) => {
+      for (const stage of stagesOf(speciesStage)) {
+        for (const [pose, art] of Object.entries(A.POSES)) {
+          art.frames.forEach((f, i) => {
+            const sprite = A.bodySprite(stage, A.SPECIES_ART[id], { eyes: f.eyes, mouth: f.mouth, squash: f.squash });
+            const width = sprite.rows[0]!.length;
+            for (const row of sprite.rows) {
+              expect(row.length, `${stage}/${pose}#${i}`).toBe(width);
+              for (const ch of row) if (ch !== ".") expect(sprite.colors[ch]).toBeDefined();
+            }
+          });
+        }
+      }
+    },
+  );
+
+  it.each(SPECIES.filter((s) => s.id !== "egg").map((s) => [s.id, s.stage] as const))(
+    "%s は目が左右対称に体の中にあり、口もある",
+    (id, stage) => {
+      const body = A.bodySprite(stage, A.SPECIES_ART[id]);
+      const eyeRow = body.rows.find((r) => r.includes("e"))!;
+      expect(eyeRow, "目").toBeDefined();
+      expect([...eyeRow].filter((c) => c === "e")).toHaveLength(2);
+      expect(eyeRow.indexOf("e") + eyeRow.lastIndexOf("e")).toBe(eyeRow.length - 1);
+      // 口（目より下にある、体の内側の線）
+      const below = body.rows.slice(body.rows.indexOf(eyeRow) + 2, -2);
+      expect(below.some((r) => /[BbHh]o+[BbHh]|[Bb]o[Bb]/.test(r)), "口").toBe(true);
+    },
+  );
+
+  it("種族ごとに形がちがう（おとなの 12 種で、同じ形は多くても 2 つ）", () => {
+    const adults = SPECIES.filter((s) => s.stage === "adult");
+    const keys = adults.map((s) => A.bodySprite("adult", A.SPECIES_ART[s.id]).rows.join("/"));
+    const counts = new Map<string, number>();
+    for (const k of keys) counts.set(k, (counts.get(k) ?? 0) + 1);
+    expect(Math.max(...counts.values())).toBeLessThanOrEqual(2);
+  });
+
+  it("寝ているときは目を閉じ、喜ぶときは跳ねる", () => {
+    const sleep = A.bodySprite("adult", {}, { eyes: "closed", squash: 1 });
+    expect(sleep.rows.join("")).not.toContain("e");
+    expect(sleep.rows.length).toBe(A.bodySprite("adult").rows.length - 1);
+    expect(A.POSES.happy.frames.some((f) => (f.dy ?? 0) < 0)).toBe(true);
+  });
 });

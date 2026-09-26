@@ -20,6 +20,8 @@ const MONOLOGUE_MS = 45_000;
 export function Home() {
   const game = useStore((s) => s.game)!;
   const bubble = useStore((s) => s.bubble);
+  const mood = useStore((s) => s.mood);
+  const setMood = useStore((s) => s.setMood);
   const send = useStore((s) => s.send);
   const setTab = useStore((s) => s.setTab);
   const { pet, room, timezone, unread, absence } = game;
@@ -38,7 +40,12 @@ export function Home() {
         room={room}
         timezone={timezone}
         bubble={bubble}
-        onTapPet={() => send({ type: "talk" })}
+        mood={mood}
+        onTapPet={async () => {
+          const res = await send({ type: "talk" });
+          // 話しかけると、起きていればうれしそうにする（最期の日は静かに）
+          if (res?.reaction?.reaction === "none" && res.reaction.bubble && res.pet.state.stage !== "final_day") setMood("happy");
+        }}
         onTapLitter={(id) => send({ type: "clean", litterIds: [id] })}
       />
       <p className="now-doing pixel">{nowDoing(pet)}</p>

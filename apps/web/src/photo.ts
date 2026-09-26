@@ -71,7 +71,8 @@ export function composeSelfie(room: RoomState, selfie: Selfie, timezone: string)
   const bottom = FLOOR_Y + 22;
   ctx.fillStyle = p.shadow;
   ctx.fillRect(cx - 6, bottom - 1, 12, 2);
-  const box = drawPet(ctx, { speciesId: selfie.speciesId, stage: selfie.stage, equipped: selfie.equipped }, cx, bottom, p);
+  // にっこり（poses/play.ts の笑顔のコマ）
+  const box = drawPet(ctx, { speciesId: selfie.speciesId, stage: selfie.stage, equipped: selfie.equipped, pose: "play", t: 800 }, cx, bottom, p);
   // カメラのきらっ
   drawSprite(ctx, SPARKLE, box.x - 7, box.y + 2, p);
   drawSprite(ctx, SPARKLE, box.x + box.w + 2, box.y - 4, p);
