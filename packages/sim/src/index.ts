@@ -5,3 +5,5 @@ export * from "./stage.ts";
 export * from "./pet.ts";
 export * from "./personality.ts";
 export * from "./engine.ts";
+export * from "./foods.ts";
+export * from "./care.ts";

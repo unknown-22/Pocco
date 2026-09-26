@@ -55,6 +55,22 @@ const MIGRATIONS: string[] = [
   CREATE INDEX timeline_pet_at ON timeline (pet_id, at);
   CREATE INDEX timeline_day ON timeline (pet_id, day_key);
   `,
+  // v3: P2 もちもの・おすそわけ
+  `
+  CREATE TABLE inventory (
+    item_id TEXT PRIMARY KEY,
+    kind TEXT NOT NULL,
+    count INTEGER NOT NULL,
+    acquired_at INTEGER NOT NULL
+  );
+  ALTER TABLE meta ADD COLUMN last_gift_day TEXT;
+  -- 既存のセーブデータにも最初の食べ物を配る
+  INSERT INTO inventory (item_id, kind, count, acquired_at)
+    SELECT v.id, 'food', v.n, 0 FROM (
+      SELECT 'apple' AS id, 3 AS n UNION ALL SELECT 'rice_ball', 3
+      UNION ALL SELECT 'bread', 2 UNION ALL SELECT 'cookie', 2
+    ) v WHERE EXISTS (SELECT 1 FROM meta);
+  `,
 ];
 
 export function openDb(file: string): DB {

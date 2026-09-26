@@ -146,3 +146,80 @@ describe("POST /api/debug/advance", () => {
     expect(res.status).toBe(404);
   });
 });
+
+describe("P2 おせわ", () => {
+  const act = (app: App, action: unknown, id: string = crypto.randomUUID()) =>
+    post(app, "/api/actions", { clientActionId: id, action });
+
+  /** 孵化させて起こし、おなかを空かせる */
+  async function hatched() {
+    const ctx = setup();
+    await ctx.app.request("/api/state");
+    ctx.advance(3 * HOUR);
+    await ctx.app.request("/api/state");
+    const pet = ctx.db.prepare("SELECT id, state_json FROM pets").get() as { id: string; state_json: string };
+    const state = JSON.parse(pet.state_json);
+    state.activity = { type: "idle", since: ctx.now(), spot: "rug" };
+    state.needs.hunger = 80;
+    ctx.db.prepare("UPDATE pets SET state_json = ? WHERE id = ?").run(JSON.stringify(state), pet.id);
+    return ctx;
+  }
+
+  it("最初から食べ物を持っていて、1 日 1 回おすそわけが届く", async () => {
+    const { app, advance } = setup();
+    const s1 = await getJson(app, "/api/state");
+    const total = (s: { inventory: { count: number }[] }) => s.inventory.reduce((n, i) => n + i.count, 0);
+    expect(total(s1)).toBe(10 + 3);
+    const s2 = await getJson(app, "/api/state");
+    expect(total(s2)).toBe(total(s1));
+    advance(DAY);
+    const s3 = await getJson(app, "/api/state");
+    expect(total(s3)).toBe(total(s1) + 3);
+  });
+
+  it("ごはんをあげると持ち物が減り、反応が返り、日記に残る", async () => {
+    const { app } = await hatched();
+    const before = (await getJson(app, "/api/state")).inventory.find((i: { itemId: string }) => i.itemId === "apple").count;
+    const res = await (await act(app, { type: "feed", foodId: "apple" })).json();
+    expect(["love", "normal", "dislike"]).toContain(res.reaction.reaction);
+    expect(res.reaction.bubble).not.toBe("");
+    expect(res.inventory.find((i: { itemId: string }) => i.itemId === "apple").count).toBe(before - 1);
+    const { entries } = await getJson(app, "/api/timeline");
+    expect(entries.some((e: { eventId: string }) => e.eventId.startsWith("feed_"))).toBe(true);
+  });
+
+  it("持っていない食べ物はあげられない", async () => {
+    const { app } = await hatched();
+    const res = await act(app, { type: "feed", foodId: "curry" });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("out_of_stock");
+  });
+
+  it("同じ操作を二重に送っても 1 回しか食べない", async () => {
+    const { app } = await hatched();
+    const r1 = await (await act(app, { type: "feed", foodId: "apple" }, "same")).json();
+    const r2 = await (await act(app, { type: "feed", foodId: "apple" }, "same")).json();
+    const count = (s: { inventory: { itemId: string; count: number }[] }) => s.inventory.find((i) => i.itemId === "apple")?.count;
+    expect(count(r2)).toBe(count(r1));
+    expect(r2.reaction).toBeUndefined();
+  });
+
+  it("掃除・電気・話しかける", async () => {
+    const { app } = await hatched();
+    const cleaned = await (await act(app, { type: "clean" })).json();
+    expect(cleaned.room.litter).toEqual([]);
+    const talked = await (await act(app, { type: "talk" })).json();
+    expect(talked.reaction.bubble.length).toBeGreaterThan(0);
+    const dark = await (await act(app, { type: "lights", on: false })).json();
+    expect(dark.room.lightsOff).toBe(true);
+  });
+
+  it("独り言は状態を変えない", async () => {
+    const { app, db } = await hatched();
+    const before = (db.prepare("SELECT state_json FROM pets").get() as { state_json: string }).state_json;
+    const res = await (await act(app, { type: "talk", idle: true })).json();
+    expect(res.reaction.bubble.length).toBeGreaterThan(0);
+    const after = (db.prepare("SELECT state_json FROM pets").get() as { state_json: string }).state_json;
+    expect(after).toBe(before);
+  });
+});

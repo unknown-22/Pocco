@@ -1,5 +1,12 @@
 import type { Pet, PetState, RoomState } from "./types.ts";
 import { createRng, hashSeed, randInt } from "./rng.ts";
+import { TASTE_TAGS } from "./foods.ts";
+
+/** 生まれつきの食の好み。タグごとに -30〜30。 */
+export function innateFoodPrefs(petId: string): Record<string, number> {
+  const rng = createRng(hashSeed(petId, "prefs"));
+  return Object.fromEntries(TASTE_TAGS.map((tag) => [tag, randInt(rng, -30, 30)]));
+}
 
 /** 新しいたまごを作る。性格はシードから決まる小さなばらつきを持つ。 */
 export function createPet(opts: {
@@ -23,7 +30,7 @@ export function createPet(opts: {
       appetite: jitter(),
       chronotype: jitter(),
     },
-    foodPrefs: {},
+    foodPrefs: innateFoodPrefs(opts.id),
     hobbies: [],
     activity: { type: "egg", since: opts.now },
     equipped: {},

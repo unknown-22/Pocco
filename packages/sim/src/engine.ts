@@ -6,6 +6,8 @@ import { HOUR, MINUTE, dayKey, localHour } from "./clock.ts";
 import { drift, inSleepWindow } from "./personality.ts";
 import { createRng, hashSeed, randInt, type Rng } from "./rng.ts";
 import { stageForAge } from "./stage.ts";
+import { innateFoodPrefs } from "./pet.ts";
+import { FOODS, foodAffinity, type Food } from "./foods.ts";
 import { pickText } from "./texts.ts";
 import type {
   Activity,
@@ -60,7 +62,13 @@ export function formatDuration(ms: number): string {
 const clamp = (v: number) => Math.max(0, Math.min(100, v));
 
 /** 古いセーブデータに足りない項目を補う。 */
-export function normalizePetState(state: PetState): PetState {
+export function normalizePet(pet: Pet): Pet {
+  normalizePetState(pet.state);
+  if (Object.keys(pet.state.foodPrefs).length === 0) pet.state.foodPrefs = innateFoodPrefs(pet.id);
+  return pet;
+}
+
+function normalizePetState(state: PetState): PetState {
   state.cooldowns ??= {};
   state.drift ??= { day: "", used: {} };
   state.stats ??= {};
@@ -71,7 +79,7 @@ export function normalizePetState(state: PetState): PetState {
 
 export function simulate(input: World, to: number, ctx: SimContext): SimResult {
   const world = structuredClone(input);
-  normalizePetState(world.pet.state);
+  normalizePet(world.pet);
   const events: TimelineEvent[] = [];
 
   // 時計が戻った場合は何もしない
@@ -116,6 +124,7 @@ function tick(
     extra: Partial<TimelineEvent> = {},
     spot?: Spot,
     duration?: string,
+    food?: string,
   ) => {
     const lonely = s.needs.loneliness > 60;
     sink({
@@ -123,7 +132,7 @@ function tick(
       eventId,
       importance,
       kind: "pet",
-      text: pickText(eventId, { state: s, night, lonely, spot, duration }, rng),
+      text: pickText(eventId, { state: s, night, lonely, spot, duration, food }, rng),
       ...extra,
     });
   };
@@ -153,12 +162,15 @@ function tick(
   n.boredom = clamp(n.boredom + (asleep ? 0 : act.type === "play" ? -30 : 8) * dtH);
   n.loneliness = clamp(n.loneliness + (absent ? 5 : -30) * dtH);
 
+  // 散らかった部屋に長くいると、ずぼらになっていく（仕様書 10.3）
+  if (room.mess > 60 && rng() < 0.03) drift(s, "tidiness", -1, day);
+
   // --- 今の行動を続けるか ---
   const sleepTime = inSleepWindow(hour, s.personality);
   let done: boolean;
   switch (act.type) {
     case "sleep":
-      done = !sleepTime && n.sleepiness < 35;
+      done = !sleepTime && n.sleepiness < 35 && !(room.lightsOff && n.sleepiness > 10);
       break;
     case "nap":
       done = n.sleepiness < 20 || t >= (act.until ?? t);
@@ -182,6 +194,7 @@ function tick(
     return;
   }
   // 時間のかかる行動は、終わったときにも書く
+  if (act.type === "sleep" && room.lightsOff) room.lightsOff = false; // 起きたら自分で電気をつける
   if (LONG_ACTIVITIES.has(act.type)) {
     log(`${act.type}_end`, "normal", {}, act.spot, formatDuration(t - act.since));
   }
@@ -208,6 +221,12 @@ function tick(
     start("sleep", 60, "bed");
     return;
   }
+  // 電気が消えていると寝つきやすい
+  if (room.lightsOff && n.sleepiness >= 15) {
+    if (sleepTime) start("sleep", 60, "bed");
+    else start("nap", randInt(rng, 30, 90), "bed");
+    return;
+  }
   if (n.sleepiness >= 85) {
     start("nap", randInt(rng, 30, 90), rng() < 0.5 ? "rug" : "floor");
     return;
@@ -215,7 +234,10 @@ function tick(
   // おなかが空いて誰もいないと、自分で冷蔵庫を開ける（仕様書 6.1）
   if (n.hunger >= 70 && absent && cooled("eat", 3 * HOUR) && rng() < 0.7) {
     mark("eat");
-    log("eat", "normal", {}, "fridge");
+    // 好きなものほど選ばれやすい → 放っておくと好みが偏る（仕様書 6.1）
+    const food = pickFridgeFood(s, rng);
+    for (const tag of food.tags) s.foodPrefs[tag] = Math.min(100, (s.foodPrefs[tag] ?? 0) + 2);
+    log("eat", "normal", {}, "fridge", undefined, food.name);
     n.hunger = clamp(n.hunger - 40);
     room.mess = clamp(room.mess + 8);
     addLitter(room, rng, t, "crumb");
@@ -324,3 +346,9 @@ function addLitter(room: RoomState, rng: Rng, t: number, kind: string) {
   });
 }
 
+function pickFridgeFood(s: PetState, rng: Rng): Food {
+  return weightedPick(
+    FOODS.map((f) => ({ food: f, weight: Math.max(5, foodAffinity(s.foodPrefs, f) + 100) })),
+    rng,
+  ).food;
+}

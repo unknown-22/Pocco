@@ -9,6 +9,7 @@ export interface TextContext {
   lonely: boolean;
   spot?: string;
   duration?: string;
+  food?: string;
 }
 
 type Variant = { when?: (c: TextContext) => boolean; texts: string[] };
@@ -39,9 +40,9 @@ const T: Record<string, Variant[]> = {
     { texts: ["窓の外をぼんやり眺めていた。", "窓から雲の形を観察していた。"] },
   ],
   eat: [
-    { when: (c) => c.state.personality.tidiness > 30, texts: ["冷蔵庫を開けて、ちゃんと閉めた。"] },
-    { when: (c) => c.state.personality.tidiness < -30, texts: ["冷蔵庫を開けっぱなしにしていた。"] },
-    { texts: ["冷蔵庫を勝手に開けた。", "冷蔵庫をあさって、何かを食べた。", "冷蔵庫の前でこっそりつまみ食いした。"] },
+    { when: (c) => c.state.personality.tidiness > 30, texts: ["冷蔵庫を開けて{food}を食べ、ちゃんと閉めた。"] },
+    { when: (c) => c.state.personality.tidiness < -30, texts: ["冷蔵庫の{food}を食べて、開けっぱなしにしていた。"] },
+    { texts: ["冷蔵庫を勝手に開けて、{food}を食べた。", "冷蔵庫をあさって、{food}を見つけて食べた。", "冷蔵庫の前で{food}をこっそりつまみ食いした。"] },
   ],
   mess: [
     { texts: ["クッションを床に放り投げた。", "おもちゃを部屋じゅうに広げた。", "紙をびりびりにした。", "ラグをくしゃくしゃにした。"] },
@@ -79,5 +80,6 @@ export function pickText(eventId: string, ctx: TextContext, rng: Rng): string {
   const text = variant.texts[Math.floor(rng() * variant.texts.length)]!;
   return text
     .replace("{spot}", SPOT_LABEL[ctx.spot ?? "floor"] ?? "床の上")
-    .replace("{duration}", ctx.duration ?? "");
+    .replace("{duration}", ctx.duration ?? "")
+    .replace("{food}", ctx.food ?? "何か");
 }

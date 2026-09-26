@@ -6,6 +6,9 @@ import { Diary } from "./ui/Diary.tsx";
 import { TabBar } from "./ui/TabBar.tsx";
 import { Placeholder } from "./ui/Placeholder.tsx";
 import { Settings } from "./ui/Settings.tsx";
+import { Items } from "./ui/Items.tsx";
+import { FoodSheet } from "./ui/FoodSheet.tsx";
+import { StatusSheet } from "./ui/StatusSheet.tsx";
 
 const POLL_MS = 30_000;
 
@@ -14,6 +17,7 @@ export function App() {
   const error = useStore((s) => s.error);
   const tab = useStore((s) => s.tab);
   const refresh = useStore((s) => s.refresh);
+  const sheet = useStore((s) => s.sheet);
 
   // 定期的に、また画面に戻ってきたときに最新の状態を取る（仕様書 4.3）
   useEffect(() => {
@@ -40,12 +44,14 @@ export function App() {
             <main className="content">
               {tab === "home" && <Home />}
               {tab === "diary" && <Diary />}
-              {tab === "items" && <Placeholder title="もちもの" note="食べ物・拾い物・着せ替えは P2〜P4 で実装します" />}
+              {tab === "items" && <Items />}
               {tab === "collection" && <Placeholder title="図鑑" note="図鑑・思い出・アルバムは P3〜P4 で実装します" />}
               {tab === "settings" && <Settings />}
             </main>
             {error && <div className="toast">通信エラー: {error}</div>}
             <TabBar />
+            {sheet === "food" && <FoodSheet />}
+            {sheet === "status" && <StatusSheet />}
           </>
         )}
       </div>

@@ -10,8 +10,14 @@ interface Props {
   stage: Stage;
   activity: Activity;
   litter: RoomState["litter"];
+  lightsOff: boolean;
   timezone: string;
+  bubble: { text: string; id: number } | null;
+  onTapPet: () => void;
+  onTapLitter: (id: string) => void;
 }
+
+const BUBBLE_MS = 3500;
 
 /** 行動ごとの立ち位置（スプライト左端の x） */
 const SPOT_X: Record<string, number> = { floor: 56, rug: 52, window: 56, fridge: 27, bed: 100 };
@@ -26,11 +32,37 @@ const ROAM: Record<string, [number, number]> = {
  * 部屋とペットを描く。サーバーの状態（行動・散らかり）をもとに、
  * 歩く・まばたきなどの細かい動きはクライアント側の演出で付ける（仕様書 4.3）。
  */
-export function RoomCanvas({ stage, activity, litter, timezone }: Props) {
+export function RoomCanvas({ stage, activity, litter, lightsOff, timezone, bubble, onTapPet, onTapLitter }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const bubbleRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(3);
   const petX = useRef<number | null>(null);
+  /** ペットの当たり判定（部屋の座標） */
+  const petBox = useRef({ x: 0, y: 0, w: 16, h: 16 });
+  const [visibleBubble, setVisibleBubble] = useState<Props["bubble"]>(null);
+
+  // 吹き出しは数秒で消す
+  useEffect(() => {
+    if (!bubble) return;
+    setVisibleBubble(bubble);
+    const id = setTimeout(() => setVisibleBubble((b) => (b?.id === bubble.id ? null : b)), BUBBLE_MS);
+    return () => clearTimeout(id);
+  }, [bubble]);
+
+  const onClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * ROOM_SIZE;
+    const y = ((e.clientY - rect.top) / rect.height) * ROOM_SIZE;
+    const b = petBox.current;
+    const pad = 4; // 指で押しやすいように少し広げる
+    if (x >= b.x - pad && x <= b.x + b.w + pad && y >= b.y - pad && y <= b.y + b.h + pad) {
+      onTapPet();
+      return;
+    }
+    const hit = litter.find((l) => x >= l.x - 3 && x <= l.x + 7 && y >= l.y - 3 && y <= l.y + 7);
+    if (hit) onTapLitter(hit.id);
+  };
 
   // 画面幅に収まる最大の整数倍で拡大する
   useEffect(() => {
@@ -77,6 +109,7 @@ export function RoomCanvas({ stage, activity, litter, timezone }: Props) {
         const wobble = t % 3200 < 600 ? (Math.floor(t / 150) % 2 ? 1 : -1) : 0;
         const x = 58 + wobble;
         const y = FLOOR_Y + 22 - EGG.rows.length;
+        petBox.current = { x, y, w: 12, h: EGG.rows.length };
         ctx.fillStyle = p.shadow;
         ctx.fillRect(x + 1, y + EGG.rows.length - 1, 10, 2);
         drawSprite(ctx, EGG, x, y, p);
@@ -110,27 +143,46 @@ export function RoomCanvas({ stage, activity, litter, timezone }: Props) {
           ctx.fillRect(px + 2, FLOOR_Y + 21, 12, 2);
         }
         drawSprite(ctx, sprite, px, py, p);
+        petBox.current = { x: px, y: py, w: 16, h: sprite.rows.length };
         if (asleep) {
           const rise = Math.floor(t / 400) % 6;
           drawSprite(ctx, ZZZ, px + 14, py - 4 - rise, p);
         }
       }
+      if (lightsOff) {
+        // 電気を消した部屋。窓の外の明かりだけ残す
+        ctx.fillStyle = "rgba(24, 22, 60, 0.55)";
+        ctx.fillRect(0, 0, ROOM_SIZE, ROOM_SIZE);
+      }
+
+      const bubbleEl = bubbleRef.current;
+      if (bubbleEl) {
+        const b = petBox.current;
+        bubbleEl.style.left = `${((b.x + b.w / 2) / ROOM_SIZE) * 100}%`;
+        bubbleEl.style.top = `${(b.y / ROOM_SIZE) * 100}%`;
+      }
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [stage, activity.type, activity.spot, litter, timezone]);
+  }, [stage, activity.type, activity.spot, litter, lightsOff, timezone]);
 
   const size = ROOM_SIZE * scale;
   return (
     <div ref={wrapRef} className="room">
-      <canvas
-        ref={canvasRef}
-        width={ROOM_SIZE}
-        height={ROOM_SIZE}
-        style={{ width: size, height: size }}
-        aria-label="ペットの部屋"
-      />
+      <div className="room-inner" style={{ width: size, height: size }}>
+        <canvas
+          ref={canvasRef}
+          width={ROOM_SIZE}
+          height={ROOM_SIZE}
+          style={{ width: size, height: size }}
+          aria-label="ペットの部屋（ペットをタップで話しかける、ゴミをタップで片付ける）"
+          onClick={onClick}
+        />
+        <div ref={bubbleRef} className={`bubble pixel${visibleBubble ? " is-visible" : ""}`} aria-live="polite">
+          {visibleBubble?.text}
+        </div>
+      </div>
     </div>
   );
 }

@@ -89,6 +89,8 @@ export interface RoomState {
   floorId: string;
   furniture: Record<string, string>;
   litter: { id: string; kind: string; x: number; y: number }[];
+  /** 電気を消しているか（仕様書 10.4） */
+  lightsOff?: boolean;
 }
 
 export type Importance = "normal" | "rare" | "major";

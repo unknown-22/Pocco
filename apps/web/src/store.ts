@@ -10,18 +10,29 @@ interface Store {
   error: string | null;
   tab: Tab;
   timeline: { entries: TimelineEntry[]; hasMore: boolean; loading: boolean };
+  /** ペットの吹き出し。id は表示を切り替えるための連番 */
+  bubble: { text: string; id: number } | null;
+  sheet: "food" | "status" | null;
+  setSheet: (sheet: Store["sheet"]) => void;
   setTab: (tab: Tab) => void;
   refresh: () => Promise<void>;
-  send: (action: Action) => Promise<void>;
+  send: (action: Action) => Promise<GameState | null>;
   loadTimeline: (more?: boolean) => Promise<void>;
   markRead: (upToId: number) => Promise<void>;
   debugAdvance: (minutes: number) => Promise<void>;
 }
 
 export const useStore = create<Store>((set, get) => {
-  const apply = (game: GameState) =>
+  let bubbleId = 0;
+  const apply = (game: GameState) => {
     set({ game, clockOffset: game.serverNow - Date.now(), error: null });
-  const fail = (e: unknown) => set({ error: e instanceof Error ? e.message : String(e) });
+    if (game.reaction?.bubble) set({ bubble: { text: game.reaction.bubble, id: ++bubbleId } });
+    return game;
+  };
+  const fail = (e: unknown) => {
+    set({ error: e instanceof Error ? e.message : String(e) });
+    return null;
+  };
 
   return {
     game: null,
@@ -29,8 +40,11 @@ export const useStore = create<Store>((set, get) => {
     error: null,
     tab: "home",
     timeline: { entries: [], hasMore: false, loading: false },
+    bubble: null,
+    sheet: null,
+    setSheet: (sheet) => set({ sheet }),
     setTab: (tab) => set({ tab }),
-    refresh: () => api.getState().then(apply, fail),
+    refresh: () => api.getState().then(apply, fail).then(() => undefined),
     send: (action) => api.sendAction(action).then(apply, fail),
 
     loadTimeline: async (more = false) => {
@@ -63,7 +77,7 @@ export const useStore = create<Store>((set, get) => {
       }
     },
 
-    debugAdvance: (minutes) => api.debugAdvance(minutes).then(apply, fail),
+    debugAdvance: (minutes) => api.debugAdvance(minutes).then(apply, fail).then(() => undefined),
   };
 });
 
