@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import type { Pet } from "@pocco/sim";
-import { drawSprite } from "../render/sprites.ts";
+import { drawSprite } from "../render/sprite.ts";
 import { drawPet } from "../render/pet.ts";
 import { petPalette } from "../render/palette.ts";
 import { CATCH, caught, catchSpawns, itemY, type FallingItem } from "./logic.ts";
-import { PAPER, SNACK } from "./sprites.ts";
+import { PAPER, SNACK } from "../render/assets/index.ts";
 import { useGameCanvas } from "./useGameCanvas.ts";
 
 /** キャッチ: 落ちてくるおやつを、左右に動いて受けとめる */

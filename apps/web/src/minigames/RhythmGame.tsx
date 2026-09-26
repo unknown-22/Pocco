@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import type { Pet } from "@pocco/sim";
 import { drawPet } from "../render/pet.ts";
-import { drawSprite } from "../render/sprites.ts";
+import { drawSprite } from "../render/sprite.ts";
 import { petPalette } from "../render/palette.ts";
 import { RHYTHM, judgeTap, rhythmBeats, rhythmScore, type Grade } from "./logic.ts";
-import { NOTE_SPRITE } from "./sprites.ts";
+import { NOTE_SPRITE } from "../render/assets/index.ts";
 import { GameHud } from "./CatchGame.tsx";
 import { useGameCanvas } from "./useGameCanvas.ts";
 

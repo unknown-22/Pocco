@@ -1,8 +1,7 @@
-// 種族ごとの体（仮素材 D13）。楕円から輪郭・影・ハイライト・顔を自動で作る。
+// 種族ごとの体。楕円から輪郭・影・ハイライト・顔を自動で作る。
 // 段階が進むほど大きくなる。頭の飾り（feature）は上に重ねる。
 
-import type { Feature } from "@pocco/sim";
-import type { Sprite } from "./sprites.ts";
+import type { Sprite } from "../../sprite.ts";
 
 const SIZE: Record<string, [number, number]> = {
   baby: [16, 14],
@@ -65,21 +64,3 @@ export function bodySprite(stage: string): Sprite {
   cache.set(stage, sprite);
   return sprite;
 }
-
-/** 頭の飾り。anchorY は飾りの一番下の行が体の一番上の行に重なる位置 */
-export const FEATURES: Record<Exclude<Feature, "none">, Sprite> = {
-  sprout: { rows: ["f.f", ".f.", ".F."], colors: { f: "feature", F: "featureShade" } },
-  ears: { rows: ["o.......o", "ff.....ff", "fF.....Ff"], colors: { f: "feature", F: "featureShade", o: "bodyLine" } },
-  bunny: { rows: [".f...f.", "fF...Ff", "fF...Ff", "fF...Ff", ".f...f."], colors: { f: "feature", F: "featureShade" } },
-  antenna: { rows: ["F...F", ".f.f.", ".f.f."], colors: { f: "bodyLine", F: "feature" } },
-  horn: { rows: [".f.", ".f.", "fFf"], colors: { f: "feature", F: "featureShade" } },
-  crown: { rows: ["f.f.f", "fffff", "FFFFF"], colors: { f: "feature", F: "featureShade" } },
-  nightcap: { rows: ["....fF", "...ff.", "..fff.", ".ffff.", "FFFFFF"], colors: { f: "feature", F: "featureShade" } },
-  tuft: { rows: ["f.f", "fff"], colors: { f: "feature" } },
-  bow: { rows: ["ff.ff", "fFFFf", "ff.ff"], colors: { f: "feature", F: "featureShade" } },
-  leaf: { rows: ["..ff", ".fFf", "fFf.", ".f.."], colors: { f: "feature", F: "featureShade" } },
-  star: { rows: ["..f..", "fffff", ".fFf.", "f...f"], colors: { f: "feature", F: "featureShade" } },
-};
-
-/** シニアの眼鏡。目の高さに重ねる */
-export const GLASSES: Sprite = { rows: ["ggg....ggg", "g.gggggg.g", "ggg....ggg"], colors: { g: "glasses" } };

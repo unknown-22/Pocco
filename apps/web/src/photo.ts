@@ -4,7 +4,8 @@ import { getSpecies, localHour, type RoomState, type Selfie } from "@pocco/sim";
 import { paletteFor, withSpecies } from "./render/palette.ts";
 import { drawRoom, FLOOR_Y, ROOM_SIZE } from "./render/room.ts";
 import { drawPet } from "./render/pet.ts";
-import { KEEPSAKE, SPARKLE, drawSprite } from "./render/sprites.ts";
+import { drawSprite } from "./render/sprite.ts";
+import { KEEPSAKE, SPARKLE } from "./render/assets/index.ts";
 import { dayPeriod } from "./time.ts";
 
 /** 書き出すときの倍率（128px → 768px） */

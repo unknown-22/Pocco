@@ -2,9 +2,8 @@
 // 部屋・肖像・写真で共通に使う。
 
 import { getSpecies, type Equipped } from "@pocco/sim";
-import { FEATURES, GLASSES, bodySprite } from "./body.ts";
-import { ACCESSORY_SPRITES, CLOTHES, HAND_SPRITES, HAT_SPRITES } from "./decor.ts";
-import { blink, drawSprite, type DrawPalette, type Sprite } from "./sprites.ts";
+import { ACCESSORY_SPRITES, CLOTHES, FEATURES, GLASSES, HAND_SPRITES, HAT_SPRITES, bodySprite } from "./assets/index.ts";
+import { blink, drawSprite, type DrawPalette, type Sprite } from "./sprite.ts";
 
 export interface PetLook {
   speciesId: string;

@@ -1,7 +1,8 @@
 import { useEffect, useRef } from "react";
 import { getSpecies, type Equipped } from "@pocco/sim";
 import { paletteFor, withSpecies } from "../render/palette.ts";
-import { EGG, drawSprite } from "../render/sprites.ts";
+import { drawSprite } from "../render/sprite.ts";
+import { EGG } from "../render/assets/index.ts";
 import { drawPet } from "../render/pet.ts";
 
 /** ペットの姿だけを大きく描く（旅立ち・思い出・図鑑用）。silhouette は図鑑の未登録 */
