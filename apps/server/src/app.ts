@@ -13,6 +13,9 @@ import {
   depart,
   equip,
   feed,
+  play,
+  GAMES,
+  type GameId,
   type DecorTarget,
   type WearSlot,
   getSpecies,
@@ -74,7 +77,8 @@ export type Action =
   | { type: "lights"; on: boolean }
   | { type: "farewell_seen"; petId: string }
   | { type: "equip"; slot: WearSlot; itemId: string | null }
-  | { type: "decorate"; target: DecorTarget; itemId: string | null };
+  | { type: "decorate"; target: DecorTarget; itemId: string | null }
+  | { type: "play"; game: GameId; score: number; success: boolean };
 
 const MAX_DEBUG_ADVANCE = 30 * 24 * 60 * 60 * 1000;
 /** これより前に終わった留守は「おかえり」の対象にしない */
@@ -353,6 +357,12 @@ export function createApp(db: DB, opts: AppOptions = {}) {
         } catch {
           throw new BadRequest("invalid_item");
         }
+      }
+      case "play": {
+        if (!GAMES.some((g) => g.id === action.game)) throw new BadRequest("unknown_game");
+        const score = Number(action.score);
+        if (!Number.isFinite(score) || score < 0 || score > 100) throw new BadRequest("invalid_score");
+        return play(world, action.game, { score, success: action.success === true }, now, ctx);
       }
       case "farewell_seen": {
         // 見たのは先代かもしれないので、ID で探して直接保存する

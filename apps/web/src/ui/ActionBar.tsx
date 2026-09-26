@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useStore } from "../store.ts";
 import { captureRoom, uploadPhoto } from "../photo.ts";
+import { MiniGame } from "../minigames/MiniGame.tsx";
 
 export function ActionBar() {
   const game = useStore((s) => s.game)!;
@@ -11,6 +12,8 @@ export function ActionBar() {
   const lightsOff = Boolean(game.room.lightsOff);
   const showToast = useStore((s) => s.showToast);
   const [flash, setFlash] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const asleep = game.pet.state.activity.type === "sleep" || game.pet.state.activity.type === "nap";
 
   const takePhoto = async () => {
     setFlash(true);
@@ -25,7 +28,7 @@ export function ActionBar() {
 
   const actions = [
     { id: "feed", icon: "🍙", label: "ごはん", disabled: egg || away, onClick: () => setSheet("food") },
-    { id: "play", icon: "🎾", label: "あそぶ", disabled: true, title: "ミニゲームは P5 で追加します" },
+    { id: "play", icon: "🎾", label: "あそぶ", disabled: egg || away || asleep, onClick: () => setPlaying(true) },
     {
       id: "clean",
       icon: "🧹",
@@ -45,8 +48,9 @@ export function ActionBar() {
   return (
     <nav className="actions" aria-label="おせわ">
       {flash && <div className="flash" aria-hidden />}
+      {playing && <MiniGame onClose={() => setPlaying(false)} />}
       {actions.map((a) => (
-        <button key={a.id} className="action" disabled={a.disabled} title={a.title} onClick={a.onClick}>
+        <button key={a.id} className="action" disabled={a.disabled} onClick={a.onClick}>
           <span className="action-icon" aria-hidden>{a.icon}</span>
           <span className="action-label">{a.label}</span>
         </button>

@@ -385,3 +385,66 @@ export function decorate(world: World, target: DecorTarget, itemId: string | nul
     events: [userEvent(t, "decorate", "部屋の模様替えをした。")],
   };
 }
+
+// ---------------------------------------------------------------- 遊ぶ（ミニゲーム）
+
+export type GameId = "catch" | "hide" | "rhythm";
+
+export const GAMES: { id: GameId; name: string; icon: string; description: string }[] = [
+  { id: "catch", name: "キャッチ", icon: "🍎", description: "落ちてくるおやつを受けとめよう" },
+  { id: "hide", name: "かくれんぼ", icon: "🙈", description: "どこに隠れたか当てよう" },
+  { id: "rhythm", name: "リズムタップ", icon: "🎵", description: "鼻歌に合わせてタップしよう" },
+];
+
+/** ミニゲームの結果を反映する（仕様書 10.2）。結果に関わらず退屈が減り、やんちゃに寄る */
+export function play(
+  world: World,
+  game: GameId,
+  result: { score: number; success: boolean },
+  t: number,
+  ctx: CareContext,
+): CareResult {
+  const s = world.pet.state;
+  const info = GAMES.find((g) => g.id === game);
+  if (!info) throw new Error(`unknown game: ${game}`);
+  if (s.stage === "egg" || isAway(s)) return AWAY;
+  if (isAsleep(s)) return { bubble: "zzz…", reaction: "asleep", events: [] };
+
+  const rng = careRng(world, "play", t);
+  const day = dayKey(t, ctx.timezone);
+  countCare(s, "play");
+  s.stats[`game_${game}`] = (s.stats[`game_${game}`] ?? 0) + 1;
+  today(s, t, ctx.timezone).played = true;
+
+  s.needs.boredom = clamp(s.needs.boredom - (result.success ? 40 : 25));
+  s.needs.loneliness = clamp(s.needs.loneliness - 15);
+  s.needs.sleepiness = clamp(s.needs.sleepiness + 5);
+  drift(s, "energy", +1, day);
+  if (result.success) drift(s, "attachment", +1, day);
+
+  const score = Math.max(0, Math.round(result.score));
+  const detail =
+    game === "catch" ? `${score}こ キャッチした` : game === "hide" ? `${score}回 見つけた` : `${score}回 リズムが合った`;
+  const text = `${info.name}で遊んだ。${detail}${result.success ? "！" : "。"}`;
+  const bubble = result.success
+    ? pick(rng, ["たのしかった！", "もういっかい！", "やった！"])
+    : pick(rng, ["くやしい…", "つぎは がんばる", "むずかしい…"]);
+  return {
+    bubble: babyize(s, bubble),
+    reaction: result.success ? "love" : "normal",
+    events: [userEvent(t, "minigame", text)],
+  };
+}
+
+/**
+ * ミニゲームの得意・不得意（仕様書 10.2: 性格で得意なゲームが変わる）。
+ * speed はゲームの速さの倍率、sleepy は かくれんぼ中に寝てしまう確率。
+ */
+export function gameAptitude(p: { energy: number; tidiness: number; curiosity: number }) {
+  return {
+    speed: 1 + p.energy / 250,
+    sleepy: p.energy < -30 ? 0.4 : 0,
+    peek: p.curiosity > 30 ? 0.3 : 0,
+    steadyRhythm: p.tidiness > 20,
+  };
+}

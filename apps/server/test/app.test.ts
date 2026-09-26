@@ -400,3 +400,30 @@ describe("P4 着せ替え・模様替え・図鑑・写真", () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe("P5 ミニゲーム", () => {
+  it("遊んだ結果が反映され、日記に残る。変な値は受け付けない", async () => {
+    const { app, db, advance, now } = setup();
+    await app.request("/api/state");
+    advance(3 * HOUR);
+    await app.request("/api/state");
+    const pet = db.prepare("SELECT id, state_json FROM pets").get() as { id: string; state_json: string };
+    const state = JSON.parse(pet.state_json);
+    state.activity = { type: "idle", since: now(), spot: "rug" };
+    db.prepare("UPDATE pets SET state_json = ? WHERE id = ?").run(JSON.stringify(state), pet.id);
+
+    const ok = await (await post(app, "/api/actions", {
+      clientActionId: "g1",
+      action: { type: "play", game: "rhythm", score: 3, success: true },
+    })).json();
+    expect(ok.reaction.reaction).toBe("love");
+    const { entries } = await getJson(app, "/api/timeline");
+    expect(entries[0].eventId).toBe("minigame");
+
+    const bad = await post(app, "/api/actions", {
+      clientActionId: "g2",
+      action: { type: "play", game: "tetris", score: 1, success: true },
+    });
+    expect(bad.status).toBe(400);
+  });
+});

@@ -121,3 +121,29 @@ describe("setLights", () => {
     expect(r.events.map((e) => e.eventId)).toEqual(["lights_off", "nap_start"]);
   });
 });
+
+describe("play", () => {
+  it("遊ぶと退屈が減り、寿命のための『遊んだ』が記録される", async () => {
+    const { play } = await import("../src/care.ts");
+    const { world, t } = hungryBaby();
+    world.pet.state.needs.boredom = 80;
+    const r = play(world, "catch", { score: 7, success: true }, t, ctx);
+    expect(world.pet.state.needs.boredom).toBe(40);
+    expect(world.pet.state.today.played).toBe(true);
+    expect(r.events[0]!.text).toBe("キャッチで遊んだ。7こ キャッチした！");
+    expect(r.reaction).toBe("love");
+  });
+
+  it("寝ているときは遊べない", async () => {
+    const { play } = await import("../src/care.ts");
+    const { world, t } = hungryBaby();
+    world.pet.state.activity = { type: "sleep", since: t, spot: "bed" };
+    expect(play(world, "hide", { score: 0, success: false }, t, ctx).reaction).toBe("asleep");
+  });
+
+  it("のんびり屋はかくれんぼで寝てしまうことがある", async () => {
+    const { gameAptitude } = await import("../src/care.ts");
+    expect(gameAptitude({ energy: -50, tidiness: 0, curiosity: 0 }).sleepy).toBeGreaterThan(0);
+    expect(gameAptitude({ energy: 50, tidiness: 0, curiosity: 0 }).speed).toBeGreaterThan(1);
+  });
+});

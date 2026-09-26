@@ -41,6 +41,7 @@ export const EVENT_ENTRIES: EventEntry[] = [
   { id: "farewell", name: "旅立ち", icon: "🕊️", hint: "いつかは訪れる" },
   { id: "new_egg", name: "つぎの世代", icon: "🥚", hint: "旅立ちのあとに…" },
   { id: "gift", name: "おすそわけ", icon: "🎁", hint: "毎日開いてみよう" },
+  { id: "minigame", name: "いっしょに遊んだ", icon: "🎾", hint: "「あそぶ」を押してみよう" },
 ];
 
 /** 日記の出来事が、図鑑のどのイベントにあたるか */
@@ -78,6 +79,8 @@ export function eventEntryOf(e: Pick<TimelineEvent, "eventId" | "importance">): 
       return "new_egg";
     case "gift":
       return "gift";
+    case "minigame":
+      return "minigame";
     default:
       return null;
   }

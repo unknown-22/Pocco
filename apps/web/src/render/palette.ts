@@ -2,6 +2,7 @@
 // 時間帯はパレット自体を差し替えて表現する。
 
 import type { DayPeriod } from "../time.ts";
+import { getSpecies } from "@pocco/sim";
 
 export const BASE = {
   // 部屋
@@ -132,4 +133,10 @@ export function withSpecies(
     feature: t(colors.feature),
     featureShade: t(mix(colors.feature, "#000000", 0.18)),
   };
+}
+
+/** ペットの種族の色を入れたパレット（ミニゲーム・写真用） */
+export function petPalette(pet: { state: { speciesId: string; stage: string } }, period: DayPeriod) {
+  const senior = pet.state.stage === "senior" || pet.state.stage === "final_day";
+  return withSpecies(paletteFor(period), period, getSpecies(pet.state.speciesId).colors, senior);
 }

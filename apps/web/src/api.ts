@@ -1,4 +1,4 @@
-import type { DecorTarget, Pet, RoomState, TimelineEvent, WearSlot } from "@pocco/sim";
+import type { DecorTarget, GameId, Pet, RoomState, TimelineEvent, WearSlot } from "@pocco/sim";
 
 export interface InventoryItem {
   itemId: string;
@@ -65,7 +65,8 @@ export type Action =
   | { type: "lights"; on: boolean }
   | { type: "farewell_seen"; petId: string }
   | { type: "equip"; slot: WearSlot; itemId: string | null }
-  | { type: "decorate"; target: DecorTarget; itemId: string | null };
+  | { type: "decorate"; target: DecorTarget; itemId: string | null }
+  | { type: "play"; game: GameId; score: number; success: boolean };
 
 export interface Photo {
   id: string;
