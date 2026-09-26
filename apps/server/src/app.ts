@@ -4,7 +4,9 @@ import { Hono } from "hono";
 import {
   ABSENT_AFTER_MS,
   clean,
+  depart,
   feed,
+  getSpecies,
   getFood,
   setLights,
   talk,
@@ -16,7 +18,12 @@ import type { DB } from "./db.ts";
 import { deliverDailyGift } from "./gifts.ts";
 import {
   addItem,
+  getCollection,
   getInventory,
+  getPet,
+  listHighlights,
+  listPets,
+  recordDiscovery,
   hasItem,
   insertEvents,
   listTimeline,
@@ -43,7 +50,8 @@ export type Action =
   | { type: "feed"; foodId: string }
   | { type: "clean"; litterIds?: string[] }
   | { type: "talk"; idle?: boolean }
-  | { type: "lights"; on: boolean };
+  | { type: "lights"; on: boolean }
+  | { type: "farewell_seen"; petId: string };
 
 const MAX_DEBUG_ADVANCE = 30 * 24 * 60 * 60 * 1000;
 /** これより前に終わった留守は「おかえり」の対象にしない */
@@ -62,10 +70,28 @@ export function createApp(db: DB, opts: AppOptions = {}) {
     room,
     inventory: getInventory(db),
     unread: unreadCount(db, pet.id),
+    pendingFarewell: pendingFarewell(),
     absence: meta.absence,
     debug: Boolean(opts.debug),
     ...(reaction ? { reaction } : {}),
   });
+
+  /** まだ見ていない旅立ち（演出・置き手紙）。次の世代が生まれていても見せる */
+  function pendingFarewell() {
+    const pet = listPets(db)
+      .filter((p) => p.state.farewell && !p.state.farewell.seen)
+      .at(-1);
+    if (!pet) return null;
+    return {
+      petId: pet.id,
+      name: pet.name,
+      speciesId: pet.state.speciesId,
+      bornAt: pet.bornAt,
+      diedAt: pet.diedAt!,
+      witnessed: pet.state.farewell!.witnessed,
+      lastWords: pet.state.farewell!.lastWords,
+    };
+  }
 
   app.onError((err, c) => {
     if (err instanceof BadRequest) return c.json({ error: err.message }, 400);
@@ -85,14 +111,23 @@ export function createApp(db: DB, opts: AppOptions = {}) {
         now - meta.lastSeenAt > ABSENT_AFTER_MS ? { from: meta.lastSeenAt, to: now } : meta.absence;
       let next = { ...meta, lastSeenAt: now, absence };
       saveMeta(db, next);
-      next = deliverDailyGift(db, next, loaded.pet.id, now);
+      const pet = loaded.pet;
+      if (pet.diedAt === null) next = deliverDailyGift(db, next, pet.id, now);
+      // 最期の日に開くと、目を覚まして最後のひとことを言って旅立つ（看取り。仕様書 7.3）
+      if (pet.state.stage === "final_day") {
+        insertEvents(db, pet.id, next.timezone, depart(pet, now, true));
+        savePet(db, pet);
+      }
       return { ...loaded, meta: next };
     })();
     return c.json(view(now, result));
   });
 
   app.get("/api/timeline", (c) => {
-    const { pet } = advance(db, clock());
+    const { pet: current } = advance(db, clock());
+    const petId = c.req.query("petId");
+    const pet = petId ? getPet(db, petId) : current;
+    if (!pet) return c.json({ error: "not_found" }, 404);
     const num = (v: string | undefined) => (v === undefined || v === "" ? undefined : Number(v));
     const limit = Math.min(100, Math.max(1, num(c.req.query("limit")) ?? 50));
     const entries = listTimeline(db, pet.id, {
@@ -102,6 +137,38 @@ export function createApp(db: DB, opts: AppOptions = {}) {
     });
     return c.json({ entries, hasMore: entries.length === limit });
   });
+
+  // 思い出（仕様書 7.5）。歴代のペットを世代順に
+  app.get("/api/memorial", (c) => {
+    advance(db, clock());
+    const pets = listPets(db).map((pet) => {
+      const s = pet.state;
+      const favoriteFood = Object.entries(s.stats)
+        .filter(([k]) => k.startsWith("food_"))
+        .sort((a, b) => b[1] - a[1])[0]?.[0]
+        .slice(5);
+      return {
+        id: pet.id,
+        name: pet.name,
+        generation: pet.generation,
+        bornAt: pet.bornAt,
+        diedAt: pet.diedAt,
+        stage: s.stage,
+        speciesId: s.speciesId,
+        speciesName: getSpecies(s.speciesId).name,
+        personality: s.personality,
+        hobbies: s.hobbies,
+        favoriteFood: favoriteFood ?? null,
+        keepsakeItemId: s.keepsakeItemId ?? null,
+        lastWords: s.farewell?.lastWords ?? null,
+        witnessed: s.farewell?.witnessed ?? null,
+        highlights: listHighlights(db, pet.id, 12),
+      };
+    });
+    return c.json({ pets });
+  });
+
+  app.get("/api/collection", (c) => c.json({ entries: getCollection(db) }));
 
   app.post("/api/timeline/read", async (c) => {
     const body = (await c.req.json().catch(() => null)) as { upToId?: unknown } | null;
@@ -135,6 +202,10 @@ export function createApp(db: DB, opts: AppOptions = {}) {
         timezone: meta.timezone,
         awayMs: recentAbsence,
         recent: listTimeline(db, pet.id, { limit: 10 }),
+        memories:
+          pet.state.stage === "final_day"
+            ? listHighlights(db, pet.id, 30).map((e) => `${e.text.replace(/[。！]$/, "")}…なつかしいね`)
+            : undefined,
       };
       const result = runAction(action, world, now, ctx);
 
@@ -166,6 +237,7 @@ export function createApp(db: DB, opts: AppOptions = {}) {
         if (!hasItem(db, action.foodId)) throw new BadRequest("out_of_stock");
         const result = feed(world, action.foodId, now, ctx);
         if (result.consumed) useItem(db, action.foodId);
+        if (result.events.some((e) => e.eventId === "first_food")) recordDiscovery(db, "food", action.foodId, now);
         return result;
       }
       case "clean": {
@@ -180,6 +252,15 @@ export function createApp(db: DB, opts: AppOptions = {}) {
         return talk(world, now, ctx, action.idle === true);
       case "lights":
         return setLights(world, action.on === true, now, ctx);
+      case "farewell_seen": {
+        // 見たのは先代かもしれないので、ID で探して直接保存する
+        const target = world.pet.id === action.petId ? world.pet : getPet(db, String(action.petId));
+        if (target?.state.farewell) {
+          target.state.farewell.seen = true;
+          if (target !== world.pet) savePet(db, target);
+        }
+        return { bubble: "", reaction: "none", events: [] };
+      }
       default:
         throw new BadRequest("unknown_action");
     }

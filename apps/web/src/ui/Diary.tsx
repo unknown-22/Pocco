@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { TimelineEntry } from "../api.ts";
 import { serverNow, useStore } from "../store.ts";
 import { dayLabel, formatClock, formatDuration } from "../time.ts";
-import { EVENT_ICON } from "./labels.ts";
+import { eventIcon } from "./labels.ts";
 
 /** 日記（仕様書 9 章）。開いたときの未読を覚えておき、強調表示してから既読にする。 */
 export function Diary() {
@@ -57,7 +57,7 @@ export function Diary() {
                   {formatClock(e.at, game.timezone)}
                   {e.endAt && <span className="diary-until">〜{formatClock(e.endAt, game.timezone)}</span>}
                 </time>
-                <span className="diary-icon" aria-hidden>{EVENT_ICON[e.eventId] ?? (e.importance === "major" ? "⭐" : "・")}</span>
+                <span className="diary-icon" aria-hidden>{eventIcon(e)}</span>
                 <span className="diary-text">{e.text}</span>
               </li>
             ))}

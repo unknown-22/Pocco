@@ -7,3 +7,7 @@ export * from "./personality.ts";
 export * from "./engine.ts";
 export * from "./foods.ts";
 export * from "./care.ts";
+export * from "./species.ts";
+export * from "./items.ts";
+export * from "./hobbies.ts";
+export * from "./life.ts";

@@ -347,3 +347,76 @@ button { font: inherit; color: inherit; }
 .axis-end.is-on { color: var(--text); font-weight: 600; }
 .axis-track::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--line); }
 .axis-fill { position: absolute; top: 0; bottom: 0; background: var(--accent-2); border-radius: 999px; }
+.room canvas.is-fading { filter: saturate(0.6) brightness(0.97); }
+
+/* 旅立ち（P3） */
+.portrait { image-rendering: pixelated; display: block; }
+.farewell {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 24px;
+  transition: background-color 3s ease;
+  color: #fff;
+}
+.farewell.is-dim { background: rgba(40, 32, 60, 0.9); }
+.farewell.is-dark { background: rgba(10, 8, 24, 0.95); }
+.farewell.is-black { background: #000; cursor: pointer; }
+.farewell-pet { transition: opacity 3s ease, transform 3s ease; }
+.farewell-pet.is-gone { opacity: 0; transform: translateY(-10px) scale(0.9); }
+.farewell-light {
+  position: absolute;
+  left: 50%;
+  top: 45%;
+  width: 6px;
+  height: 6px;
+  margin-left: -3px;
+  background: #fff4b8;
+  box-shadow: 0 0 12px 4px rgba(255, 244, 184, 0.7);
+  animation: farewell-rise 4s ease-in forwards;
+}
+@keyframes farewell-rise {
+  0% { opacity: 0; transform: translate(0, 0); }
+  20% { opacity: 1; }
+  100% { opacity: 0; transform: translate(40px, -260px); }
+}
+.farewell-lines { min-height: 110px; text-align: center; font-size: 18px; line-height: 1.8; }
+.farewell-line { margin: 0; animation: fade-in 1.2s ease; }
+@keyframes fade-in { from { opacity: 0; } }
+.farewell-summary { text-align: center; animation: fade-in 2s ease; }
+.farewell-big { font-size: 20px; margin: 0 0 12px; }
+.farewell-dates { font-size: 13px; color: #bbb; margin: 0 0 40px; }
+.farewell-tap { font-size: 12px; color: #777; }
+.letter {
+  width: 100%;
+  max-width: 320px;
+  background: #fdf8ec;
+  color: var(--text);
+  border-radius: 6px;
+  padding: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: fade-in 1.5s ease;
+}
+.letter-head { margin: 0; font-size: 13px; color: var(--muted); }
+.letter-body { border-top: 1px dashed #d8c9ae; padding-top: 12px; font-size: 16px; line-height: 2; }
+.letter-body p { margin: 0; }
+.letter-sign { text-align: right; margin-top: 12px !important; }
+
+/* 思い出（P3） */
+.family { display: flex; flex-direction: column; gap: 10px; }
+.family-card { flex-direction: row; align-items: center; gap: 12px; border: none; text-align: left; cursor: pointer; }
+.family-text { display: flex; flex-direction: column; gap: 2px; }
+.family-name { font-size: 17px; }
+.back { align-self: flex-start; }
+.memorial-head { align-items: center; text-align: center; gap: 6px; }
+.memorial-facts { gap: 6px; font-size: 14px; }
+.food.is-rare { background: linear-gradient(135deg, #fff, #fff6d6); }
+.diary-list.is-dated .diary-entry { grid-template-columns: 84px 22px 1fr; }

@@ -4,6 +4,15 @@ import { formatDuration } from "../time.ts";
 import { ActionBar } from "./ActionBar.tsx";
 import { RoomCanvas } from "./RoomCanvas.tsx";
 import { ACTIVITY_LABEL } from "./labels.ts";
+import { getHobby, type Pet } from "@pocco/sim";
+
+function nowDoing(pet: Pet): string {
+  const a = pet.state.activity;
+  if (pet.state.stage === "departed") return "しずかな へや";
+  if (a.type === "hobby") return `いま: しゅみの ${getHobby(a.hobbyId ?? "")?.name ?? ""}を している`;
+  if (pet.state.stage === "final_day" && (a.type === "nap" || a.type === "sleep")) return "いま: しずかに ねむっている";
+  return `いま: ${ACTIVITY_LABEL[a.type] ?? "…"}`;
+}
 
 /** 放っておくと独り言を言う間隔（仕様書 10.5） */
 const MONOLOGUE_MS = 45_000;
@@ -25,16 +34,14 @@ export function Home() {
   return (
     <>
       <RoomCanvas
-        stage={pet.state.stage}
-        activity={pet.state.activity}
-        litter={room.litter}
-        lightsOff={Boolean(room.lightsOff)}
+        pet={pet}
+        room={room}
         timezone={timezone}
         bubble={bubble}
         onTapPet={() => send({ type: "talk" })}
         onTapLitter={(id) => send({ type: "clean", litterIds: [id] })}
       />
-      <p className="now-doing pixel">いま: {ACTIVITY_LABEL[pet.state.activity.type] ?? "…"}</p>
+      <p className="now-doing pixel">{nowDoing(pet)}</p>
       <ActionBar />
       {unread > 0 && (
         <button className="card notice" onClick={() => setTab("diary")}>

@@ -40,6 +40,16 @@ export const BASE = {
   toy: "#7fb8f0",
   toyLight: "#d4ecff",
   crumb: "#a8744a",
+  // 種族の飾り（種族の色で上書きする）
+  feature: "#7fcf8f",
+  featureShade: "#5aa86b",
+  glasses: "#6b5a4a",
+  // 置き物
+  note: "#fdfaf4",
+  noteLine: "#c9b8a0",
+  box: "#e8a0b4",
+  boxShade: "#c77a92",
+  boxRibbon: "#ffe28a",
   // 共通
   zzz: "#8f9df0",
   shadow: "#00000022",
@@ -64,11 +74,11 @@ const TINT: Record<DayPeriod, { color: string; room: number; pet: number }> = {
 };
 
 const PET_KEYS = new Set<ColorKey>([
-  "body", "bodyShade", "bodyLine", "bodyLight", "eye", "cheek",
+  "body", "bodyShade", "bodyLine", "bodyLight", "eye", "cheek", "feature", "featureShade", "glasses",
   "shell", "shellShade", "shellLine", "shellSpot",
 ]);
 
-function mix(a: string, b: string, t: number): string {
+export function mix(a: string, b: string, t: number): string {
   const pa = parseInt(a.slice(1, 7), 16);
   const pb = parseInt(b.slice(1, 7), 16);
   const ch = (shift: number) => {
@@ -94,4 +104,27 @@ export function paletteFor(period: DayPeriod) {
   const result = { ...out, ...SKY[period] };
   cache.set(period, result);
   return result;
+}
+
+/** 種族の色を、時間帯に合わせて色味を寄せたうえでパレットに重ねる */
+export function withSpecies(
+  base: ReturnType<typeof paletteFor>,
+  period: DayPeriod,
+  colors: { body: string; shade: string; line: string; light: string; cheek: string; feature: string },
+  senior: boolean,
+) {
+  const tint = TINT[period];
+  // シニアは少し白っぽくなる
+  const age = (c: string) => (senior ? mix(c, "#ffffff", 0.3) : c);
+  const t = (c: string) => mix(age(c), tint.color, tint.pet);
+  return {
+    ...base,
+    body: t(colors.body),
+    bodyShade: t(colors.shade),
+    bodyLine: t(colors.line),
+    bodyLight: t(colors.light),
+    cheek: t(colors.cheek),
+    feature: t(colors.feature),
+    featureShade: t(mix(colors.feature, "#000000", 0.18)),
+  };
 }

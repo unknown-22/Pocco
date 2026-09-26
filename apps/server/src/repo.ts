@@ -24,6 +24,8 @@ export interface Meta {
   absence: { from: number; to: number } | null;
   /** 最後におすそわけが届いた日（YYYY-MM-DD） */
   lastGiftDay: string | null;
+  /** 次の世代のたまごが現れる時刻（旅立ちの翌朝 6:00） */
+  nextEggAt: number | null;
 }
 
 interface MetaRow {
@@ -35,6 +37,7 @@ interface MetaRow {
   absence_from: number | null;
   absence_to: number | null;
   last_gift_day: string | null;
+  next_egg_at: number | null;
 }
 
 interface PetRow {
@@ -77,15 +80,16 @@ export function getMeta(db: DB): Meta | null {
         ? { from: row.absence_from, to: row.absence_to }
         : null,
     lastGiftDay: row.last_gift_day,
+    nextEggAt: row.next_egg_at,
   };
 }
 
 export function saveMeta(db: DB, meta: Meta) {
   db.prepare(
     `INSERT INTO meta (id, timezone, current_pet_id, last_simulated_at, last_interacted_at,
-       last_seen_at, absence_from, absence_to, last_gift_day)
+       last_seen_at, absence_from, absence_to, last_gift_day, next_egg_at)
      VALUES (1, @timezone, @currentPetId, @lastSimulatedAt, @lastInteractedAt,
-       @lastSeenAt, @absenceFrom, @absenceTo, @lastGiftDay)
+       @lastSeenAt, @absenceFrom, @absenceTo, @lastGiftDay, @nextEggAt)
      ON CONFLICT(id) DO UPDATE SET timezone = excluded.timezone,
        current_pet_id = excluded.current_pet_id,
        last_simulated_at = excluded.last_simulated_at,
@@ -93,7 +97,8 @@ export function saveMeta(db: DB, meta: Meta) {
        last_seen_at = excluded.last_seen_at,
        absence_from = excluded.absence_from,
        absence_to = excluded.absence_to,
-       last_gift_day = excluded.last_gift_day`,
+       last_gift_day = excluded.last_gift_day,
+       next_egg_at = excluded.next_egg_at`,
   ).run({
     timezone: meta.timezone,
     currentPetId: meta.currentPetId,
@@ -103,6 +108,7 @@ export function saveMeta(db: DB, meta: Meta) {
     absenceFrom: meta.absence?.from ?? null,
     absenceTo: meta.absence?.to ?? null,
     lastGiftDay: meta.lastGiftDay,
+    nextEggAt: meta.nextEggAt,
   });
 }
 
@@ -156,9 +162,11 @@ export function ensureInitialized(db: DB, now: number): Meta {
     lastSeenAt: now,
     absence: null,
     lastGiftDay: null,
+    nextEggAt: null,
   };
   db.transaction(() => {
     savePet(db, pet);
+    recordDiscovery(db, "species", "egg", now);
     saveRoom(db, createRoom());
     saveMeta(db, meta);
     for (const [id, count] of Object.entries(STARTER_FOODS)) addItem(db, id, "food", count, now);
@@ -224,7 +232,11 @@ export function listTimeline(
       beforeId: opts.beforeId ?? 0,
       limit: opts.limit,
     }) as TimelineRow[];
-  return rows.map((r) => ({
+  return rows.map(toEntry);
+}
+
+function toEntry(r: TimelineRow): TimelineEntry {
+  return {
     id: r.id,
     at: r.at,
     ...(r.end_at !== null ? { endAt: r.end_at } : {}),
@@ -233,7 +245,7 @@ export function listTimeline(
     text: r.text,
     importance: r.importance,
     read: r.read === 1,
-  }));
+  };
 }
 
 export function unreadCount(db: DB, petId: string): number {
@@ -279,4 +291,35 @@ export function useItem(db: DB, itemId: string): boolean {
 export function hasItem(db: DB, itemId: string): boolean {
   const row = db.prepare("SELECT count FROM inventory WHERE item_id = ?").get(itemId) as { count: number } | undefined;
   return (row?.count ?? 0) > 0;
+}
+
+// ---------------------------------------------------------------- 図鑑・思い出
+
+export function recordDiscovery(db: DB, category: string, entryId: string, at: number) {
+  db.prepare("INSERT OR IGNORE INTO collection (category, entry_id, first_at) VALUES (?, ?, ?)").run(category, entryId, at);
+}
+
+export function getCollection(db: DB): { category: string; entryId: string; firstAt: number }[] {
+  const rows = db.prepare("SELECT category, entry_id, first_at FROM collection ORDER BY first_at").all() as {
+    category: string;
+    entry_id: string;
+    first_at: number;
+  }[];
+  return rows.map((r) => ({ category: r.category, entryId: r.entry_id, firstAt: r.first_at }));
+}
+
+export function listPets(db: DB): Pet[] {
+  const ids = db.prepare("SELECT id FROM pets ORDER BY generation").all() as { id: string }[];
+  return ids.map((r) => getPet(db, r.id)!);
+}
+
+/** 大事なできごと（進化・趣味・レアな拾い物など）を古い順に */
+export function listHighlights(db: DB, petId: string, limit: number): TimelineEntry[] {
+  const rows = db
+    .prepare(
+      `SELECT * FROM timeline WHERE pet_id = ? AND importance != 'normal'
+       ORDER BY at, id LIMIT ?`,
+    )
+    .all(petId, limit) as TimelineRow[];
+  return rows.map(toEntry);
 }

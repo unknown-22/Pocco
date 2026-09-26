@@ -38,6 +38,9 @@ export function createPet(opts: {
     stats: {},
     cooldowns: {},
     drift: { day: "", used: {} },
+    today: { day: "", sleptOnTime: false, wokenAtNight: false, tags: [], played: false },
+    treasures: [],
+    inheritedHobbies: [],
   };
   return {
     id: opts.id,

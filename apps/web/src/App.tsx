@@ -4,11 +4,12 @@ import { StatusBar } from "./ui/StatusBar.tsx";
 import { Home } from "./ui/Home.tsx";
 import { Diary } from "./ui/Diary.tsx";
 import { TabBar } from "./ui/TabBar.tsx";
-import { Placeholder } from "./ui/Placeholder.tsx";
 import { Settings } from "./ui/Settings.tsx";
 import { Items } from "./ui/Items.tsx";
 import { FoodSheet } from "./ui/FoodSheet.tsx";
 import { StatusSheet } from "./ui/StatusSheet.tsx";
+import { Memorial } from "./ui/Memorial.tsx";
+import { Farewell } from "./ui/Farewell.tsx";
 
 const POLL_MS = 30_000;
 
@@ -45,13 +46,14 @@ export function App() {
               {tab === "home" && <Home />}
               {tab === "diary" && <Diary />}
               {tab === "items" && <Items />}
-              {tab === "collection" && <Placeholder title="図鑑" note="図鑑・思い出・アルバムは P3〜P4 で実装します" />}
+              {tab === "collection" && <Memorial />}
               {tab === "settings" && <Settings />}
             </main>
             {error && <div className="toast">通信エラー: {error}</div>}
             <TabBar />
             {sheet === "food" && <FoodSheet />}
             {sheet === "status" && <StatusSheet />}
+            {game.pendingFarewell && <Farewell key={game.pendingFarewell.petId} farewell={game.pendingFarewell} />}
           </>
         )}
       </div>

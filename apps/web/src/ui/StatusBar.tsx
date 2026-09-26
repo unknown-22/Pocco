@@ -27,7 +27,7 @@ export function StatusBar({ pet, timezone }: { pet: Pet; timezone: string }) {
       <button className="status-name" onClick={() => setSheet("status")} aria-label="ようすを見る">
         <span className="pixel">{pet.name}</span>
         <span className="chip">{STAGE_LABEL[pet.state.stage]}</span>
-        {pet.state.stage !== "egg" && signs.length > 0 && <span className="signs" aria-hidden>{signs.join("")}</span>}
+        {pet.state.stage !== "egg" && pet.state.stage !== "departed" && signs.length > 0 && <span className="signs" aria-hidden>{signs.join("")}</span>}
       </button>
       <div className="status-meta">
         <span>{day}日目</span>

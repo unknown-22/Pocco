@@ -96,3 +96,15 @@ export const ZZZ: Sprite = {
   rows: ["zzz", "..z", ".z.", "z..", "zzz"],
   colors: { z: "zzz" },
 };
+
+/** 散歩中の書き置き */
+export const NOTE: Sprite = {
+  rows: ["nnnnnn", "nlllln", "nnnnnn", "nllnnn", "nnnnnn"],
+  colors: { n: "note", l: "noteLine" },
+};
+
+/** 窓ぎわの形見（小さな箱） */
+export const KEEPSAKE: Sprite = {
+  rows: ["..rr..", "bbrrbb", "bBrrBb", "bBrrBb", "bbbbbb"],
+  colors: { b: "box", B: "boxShade", r: "boxRibbon" },
+};

@@ -1,4 +1,4 @@
-import { TASTE_LABEL, TASTE_TAGS, type Personality } from "@pocco/sim";
+import { TASTE_LABEL, TASTE_TAGS, getHobby, getSpecies, type Personality } from "@pocco/sim";
 import { useStore } from "../store.ts";
 import { Sheet } from "./Sheet.tsx";
 
@@ -29,6 +29,13 @@ export function StatusSheet() {
 
   return (
     <Sheet title={`${game.pet.name}のようす`} onClose={() => setSheet(null)}>
+      <section className="status-section">
+        <p>
+          {game.pet.generation}代目・{getSpecies(s.speciesId).name}
+          <span className="muted">（{getSpecies(s.speciesId).description}）</span>
+        </p>
+        <p>しゅみ: {s.hobbies.length ? s.hobbies.map((h) => `${getHobby(h)?.icon} ${getHobby(h)?.name}`).join("　") : "まだ ない"}</p>
+      </section>
       <section className="status-section">
         <h3>いまの きもち</h3>
         {NEEDS.map((n) => (

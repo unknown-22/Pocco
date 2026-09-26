@@ -88,6 +88,6 @@ describe("simulate", () => {
     expect(world.lastSimulatedAt).toBeGreaterThan(end - TICK_MS);
     const old = events.filter((e) => e.at < end - 72 * HOUR - HOUR);
     expect(old.every((e) => e.importance !== "normal")).toBe(true);
-    expect(events.map((e) => e.eventId)).toEqual(expect.arrayContaining(["hatch", "stage_child", "stage_teen", "stage_adult"]));
+    expect(events.filter((e) => e.eventId === "evolve").map((e) => e.text.slice(0, 5))).toEqual(["こどもになっ", "ティーンにな", "おとなになっ"].map((x) => x.slice(0, 5)));
   });
 });

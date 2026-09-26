@@ -71,6 +71,16 @@ const MIGRATIONS: string[] = [
       UNION ALL SELECT 'bread', 2 UNION ALL SELECT 'cookie', 2
     ) v WHERE EXISTS (SELECT 1 FROM meta);
   `,
+  // v4: P3 図鑑・世代交代
+  `
+  CREATE TABLE collection (
+    category TEXT NOT NULL,
+    entry_id TEXT NOT NULL,
+    first_at INTEGER NOT NULL,
+    PRIMARY KEY (category, entry_id)
+  );
+  ALTER TABLE meta ADD COLUMN next_egg_at INTEGER;
+  `,
 ];
 
 export function openDb(file: string): DB {

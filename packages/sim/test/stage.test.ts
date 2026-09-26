@@ -14,9 +14,21 @@ describe("stageForAge", () => {
     [3 * DAY, "teen"],
     [6 * DAY, "adult"],
     [11 * DAY, "senior"],
-    [20 * DAY, "senior"],
+    [13 * DAY, "final_day"],
+    [14 * DAY, "departed"],
   ] as const)("%d ms → %s", (age, stage) => {
     expect(stageForAge(age)).toBe(stage);
+  });
+});
+
+describe("寿命の前後", () => {
+  it("寿命が延びるとシニア以降の境目も後ろにずれる", () => {
+    expect(stageForAge(11 * DAY, 6)).toBe("adult");
+    expect(stageForAge(14 * DAY, 6)).toBe("final_day");
+    expect(stageForAge(14 * DAY - 5 * HOUR, -6)).toBe("departed");
+  });
+  it("前後は ±12 時間まで", () => {
+    expect(stageForAge(14 * DAY + 13 * HOUR, 100)).toBe("departed");
   });
 });
 

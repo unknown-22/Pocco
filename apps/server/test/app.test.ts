@@ -175,7 +175,10 @@ describe("P2 おせわ", () => {
     expect(total(s2)).toBe(total(s1));
     advance(DAY);
     const s3 = await getJson(app, "/api/state");
-    expect(total(s3)).toBe(total(s1) + 3);
+    // 散歩の拾い物も増えるので、「おすそわけ」の日記の数で確かめる
+    expect(total(s3)).toBeGreaterThanOrEqual(total(s1) + 3);
+    const { entries } = await getJson(app, "/api/timeline?limit=100");
+    expect(entries.filter((e: { eventId: string }) => e.eventId === "gift").length).toBe(2);
   });
 
   it("ごはんをあげると持ち物が減り、反応が返り、日記に残る", async () => {
@@ -225,5 +228,82 @@ describe("P2 おせわ", () => {
     expect(res.reaction.bubble.length).toBeGreaterThan(0);
     const after = (db.prepare("SELECT state_json FROM pets").get() as { state_json: string }).state_json;
     expect(after).toBe(before);
+  });
+});
+
+describe("P3 一生と世代交代", () => {
+  it("最期の日に開くと看取りになり、演出を見るまで残る", async () => {
+    const { app, advance } = setup();
+    await app.request("/api/state");
+    advance(13 * DAY + 13 * HOUR); // 最期の日（寿命は世話で ±12 時間）
+    // 早送りの途中で 1 回開いて、最期の日に入ったところで開く
+    let s = await getJson(app, "/api/state");
+    for (let i = 0; i < 24 && s.pet.state.stage !== "final_day" && s.pet.state.stage !== "departed"; i++) {
+      advance(HOUR);
+      s = await getJson(app, "/api/state");
+    }
+    expect(s.pet.state.stage).toBe("departed");
+    expect(s.pendingFarewell).toMatchObject({ witnessed: true, petId: s.pet.id });
+    expect(s.pendingFarewell.lastWords.at(-1)).toBe("……ありがとう");
+
+    const seen = await (await post(app, "/api/actions", {
+      clientActionId: "fw",
+      action: { type: "farewell_seen", petId: s.pet.id },
+    })).json();
+    expect(seen.pendingFarewell).toBeNull();
+  });
+
+  it("誰も来ないと静かに旅立ち、翌朝 6 時にたまごが現れる。置き手紙は次の世代になっても残る", async () => {
+    const { app, advance, now } = setup();
+    const first = await getJson(app, "/api/state");
+    advance(16 * DAY);
+    const s = await getJson(app, "/api/state");
+    expect(s.pet.generation).toBe(2);
+    expect(s.pet.name).toBe("ポッコ2世");
+    expect(s.pet.parentId).toBe(first.pet.id);
+    expect(s.pendingFarewell).toMatchObject({ witnessed: false, petId: first.pet.id });
+
+    const memorial = await getJson(app, "/api/memorial");
+    expect(memorial.pets.map((p: { generation: number }) => p.generation)).toEqual([1, 2]);
+    const parent = memorial.pets[0];
+    expect(parent.diedAt).not.toBeNull();
+    expect(parent.highlights.length).toBeGreaterThan(0);
+
+    // 親の日記は petId で読める
+    const diary = await getJson(app, `/api/timeline?petId=${parent.id}&limit=5`);
+    expect(diary.entries[0].eventId).toBe("departed");
+
+    // 新しいたまごが現れた時刻は、朝 6 時
+    const { entries } = await getJson(app, "/api/timeline?limit=100");
+    const egg = entries.find((e: { eventId: string }) => e.eventId === "new_egg");
+    const hour = Number(new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Tokyo", hour: "numeric", hourCycle: "h23" }).format(egg.at));
+    expect(hour).toBe(6);
+    expect(egg.at).toBeLessThan(now());
+  });
+
+  it("図鑑に種族や拾い物が記録される", async () => {
+    const { app, advance } = setup();
+    await app.request("/api/state");
+    advance(4 * DAY);
+    await app.request("/api/state");
+    const { entries } = await getJson(app, "/api/collection");
+    const species = entries.filter((e: { category: string }) => e.category === "species").map((e: { entryId: string }) => e.entryId);
+    expect(species).toContain("egg");
+    expect(species).toContain("pocco");
+    expect(species.length).toBeGreaterThanOrEqual(4);
+  });
+});
+
+describe("nextEggTime", () => {
+  const tz = "Asia/Tokyo";
+  const jst = (d: number, h: number, m = 0) => Date.UTC(2026, 0, d, h - 9, m);
+  it("夜中に旅立つと、その朝 6 時", async () => {
+    const { nextEggTime } = await import("../src/world.ts");
+    expect(nextEggTime(jst(10, 2, 53), tz)).toBe(jst(10, 6));
+    expect(nextEggTime(jst(9, 21), tz)).toBe(jst(10, 6));
+  });
+  it("6 時まで 2 時間もなければ、次の朝", async () => {
+    const { nextEggTime } = await import("../src/world.ts");
+    expect(nextEggTime(jst(10, 5), tz)).toBe(jst(11, 6));
   });
 });

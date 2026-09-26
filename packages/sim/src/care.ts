@@ -7,6 +7,7 @@ import { drift, inSleepWindow } from "./personality.ts";
 import { createRng, hashSeed, randInt, type Rng } from "./rng.ts";
 import type { World } from "./engine.ts";
 import type { PetState, TimelineEvent } from "./types.ts";
+import { today } from "./life.ts";
 
 export interface CareContext {
   timezone: string;
@@ -14,6 +15,8 @@ export interface CareContext {
   awayMs?: number;
   /** 最近の日記（新しい順）。会話のネタに使う */
   recent?: Pick<TimelineEvent, "eventId" | "at" | "kind">[];
+  /** 一生の大事なできごとを思い出として短くしたもの（最期の日の会話用） */
+  memories?: string[];
 }
 
 export type Reaction = "love" | "normal" | "dislike" | "full" | "asleep" | "none";
@@ -31,6 +34,9 @@ export interface CareResult {
 
 const clamp = (v: number, min = 0, max = 100) => Math.max(min, Math.min(max, v));
 const isAsleep = (s: PetState) => s.activity.type === "sleep" || s.activity.type === "nap";
+/** 散歩中・旅立ったあとは世話できない */
+const isAway = (s: PetState) => s.activity.type === "out" || s.stage === "departed";
+const AWAY: CareResult = { bubble: "", reaction: "none", events: [] };
 const pick = <T>(rng: Rng, list: readonly T[]) => list[Math.floor(rng() * list.length)]!;
 
 function careRng(world: World, kind: string, t: number) {
@@ -53,6 +59,7 @@ export function feed(world: World, foodId: string, t: number, ctx: CareContext):
   const food = getFood(foodId);
   if (!food) throw new Error(`unknown food: ${foodId}`);
   if (s.stage === "egg") return { bubble: "……", reaction: "none", events: [] };
+  if (isAway(s)) return AWAY;
   if (isAsleep(s)) return { bubble: "zzz…", reaction: "asleep", events: [] };
   if (s.needs.hunger < 15) return { bubble: babyize(s, "おなか いっぱい…"), reaction: "full", events: [] };
 
@@ -65,6 +72,7 @@ export function feed(world: World, foodId: string, t: number, ctx: CareContext):
   const reaction: Reaction = score > 25 ? "love" : score < -25 ? "dislike" : "normal";
 
   // あげるほど好きになる。苦手なものも少しずつ慣れる（仕様書 10.1）
+  today(s, t, ctx.timezone).tags.push(...food.tags);
   const delta = reaction === "love" ? 5 : reaction === "normal" ? 3 : 2;
   for (const tag of food.tags) s.foodPrefs[tag] = clamp((s.foodPrefs[tag] ?? 0) + delta, -100, 100);
 
@@ -130,7 +138,7 @@ export function clean(world: World, litterIds: string[] | undefined, t: number, 
     events.push(userEvent(t, "clean", "部屋を掃除した。"));
   }
 
-  const bubble = isAsleep(s)
+  const bubble = isAsleep(s) || isAway(s)
     ? ""
     : s.personality.tidiness > 20
       ? pick(rng, ["すっきり！", "ぴかぴか！"])
@@ -146,11 +154,12 @@ export function setLights(world: World, on: boolean, t: number, ctx: CareContext
   const s = world.pet.state;
   const room = world.room;
   if (Boolean(room.lightsOff) === !on) return { bubble: "", reaction: "none", events: [] };
+  if (s.stage === "departed") return AWAY;
   room.lightsOff = !on;
   const events = [userEvent(t, on ? "lights_on" : "lights_off", on ? "電気をつけた。" : "電気を消した。")];
 
   // 眠いときに電気を消すと、すぐ寝る（寝かしつけ）
-  if (!on && !isAsleep(s) && s.stage !== "egg" && s.needs.sleepiness >= 15) {
+  if (!on && !isAsleep(s) && !isAway(s) && s.stage !== "egg" && s.needs.sleepiness >= 15) {
     const sleepTime = inSleepWindow(localHour(t, ctx.timezone), s.personality);
     s.activity = sleepTime
       ? { type: "sleep", since: t, until: t + HOUR, spot: "bed" }
@@ -176,6 +185,7 @@ export function talk(world: World, t: number, ctx: CareContext, idle = false): C
   const s = world.pet.state;
   const rng = createRng(hashSeed(world.pet.id, "talk", t, idle ? 1 : 0));
   if (s.stage === "egg") return { bubble: pick(rng, ["……", "（ことこと）", "（ゆらっ）"]), reaction: "none", events: [] };
+  if (isAway(s)) return AWAY;
 
   if (isAsleep(s)) {
     if (idle) return { bubble: pick(rng, ["zzz…", "むにゃ…", "すぅ…"]), reaction: "asleep", events: [] };
@@ -183,7 +193,10 @@ export function talk(world: World, t: number, ctx: CareContext, idle = false): C
     const sleepTime = inSleepWindow(localHour(t, ctx.timezone), s.personality);
     const wasType = s.activity.type;
     s.activity = { type: "idle", since: t, until: t + 20 * 60_000, spot: "rug" };
-    if (sleepTime) drift(s, "chronotype", +2, day);
+    if (sleepTime) {
+      drift(s, "chronotype", +2, day);
+      today(s, t, ctx.timezone).wokenAtNight = true;
+    }
     countCare(s, "wake");
     return {
       bubble: babyize(s, pick(rng, ["ねむい…", "なに…？", "ふぁ…"])),
@@ -192,6 +205,13 @@ export function talk(world: World, t: number, ctx: CareContext, idle = false): C
         userEvent(t, "wake", wasType === "sleep" ? "寝ているところを起こしてしまった。" : "昼寝から起こしてしまった。"),
       ],
     };
+  }
+
+  if (s.stage === "final_day") {
+    // 最期の日は、昔のことを 1 つ思い出して話す（仕様書 7.3）
+    const memory = (ctx.memories ?? [])[Math.floor(rng() * Math.max(1, (ctx.memories ?? []).length))];
+    if (!idle) countCare(s, "talk");
+    return { bubble: memory ? `…${memory}` : "……", reaction: "none", events: [] };
   }
 
   if (!idle) {

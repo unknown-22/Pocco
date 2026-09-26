@@ -1,16 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { localHour, type Activity, type RoomState, type Stage } from "@pocco/sim";
-import { paletteFor } from "../render/palette.ts";
+import { getSpecies, localHour, type Pet, type RoomState } from "@pocco/sim";
+import { paletteFor, withSpecies } from "../render/palette.ts";
 import { drawRoom, FLOOR_Y, ROOM_SIZE } from "../render/room.ts";
-import { BABY, EGG, LITTER, ZZZ, blink, drawSprite } from "../render/sprites.ts";
+import { EGG, KEEPSAKE, LITTER, NOTE, ZZZ, blink, drawSprite, type Sprite } from "../render/sprites.ts";
+import { FEATURES, GLASSES, bodySprite } from "../render/body.ts";
 import { dayPeriod } from "../time.ts";
 import { serverNow } from "../store.ts";
 
 interface Props {
-  stage: Stage;
-  activity: Activity;
-  litter: RoomState["litter"];
-  lightsOff: boolean;
+  pet: Pet;
+  room: RoomState;
   timezone: string;
   bubble: { text: string; id: number } | null;
   onTapPet: () => void;
@@ -19,28 +18,33 @@ interface Props {
 
 const BUBBLE_MS = 3500;
 
-/** 行動ごとの立ち位置（スプライト左端の x） */
-const SPOT_X: Record<string, number> = { floor: 56, rug: 52, window: 56, fridge: 27, bed: 100 };
-/** うろうろできる範囲 */
+/** 行動ごとの立ち位置（体の中心の x） */
+const SPOT_X: Record<string, number> = { floor: 64, rug: 60, window: 64, fridge: 34, bed: 108 };
+/** うろうろできる範囲（体の中心） */
 const ROAM: Record<string, [number, number]> = {
-  wander: [30, 86],
-  play: [34, 72],
-  tidy: [30, 86],
+  wander: [38, 94],
+  play: [42, 80],
+  tidy: [38, 94],
 };
 
 /**
- * 部屋とペットを描く。サーバーの状態（行動・散らかり）をもとに、
+ * 部屋とペットを描く。サーバーの状態（行動・散らかり・種族）をもとに、
  * 歩く・まばたきなどの細かい動きはクライアント側の演出で付ける（仕様書 4.3）。
  */
-export function RoomCanvas({ stage, activity, litter, lightsOff, timezone, bubble, onTapPet, onTapLitter }: Props) {
+export function RoomCanvas({ pet, room, timezone, bubble, onTapPet, onTapLitter }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const bubbleRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(3);
   const petX = useRef<number | null>(null);
   /** ペットの当たり判定（部屋の座標） */
-  const petBox = useRef({ x: 0, y: 0, w: 16, h: 16 });
+  const petBox = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
   const [visibleBubble, setVisibleBubble] = useState<Props["bubble"]>(null);
+
+  const stage = pet.state.stage;
+  const activity = pet.state.activity;
+  const speciesId = pet.state.speciesId;
+  const { litter, lightsOff, keepsakeItemId } = room;
 
   // 吹き出しは数秒で消す
   useEffect(() => {
@@ -49,20 +53,6 @@ export function RoomCanvas({ stage, activity, litter, lightsOff, timezone, bubbl
     const id = setTimeout(() => setVisibleBubble((b) => (b?.id === bubble.id ? null : b)), BUBBLE_MS);
     return () => clearTimeout(id);
   }, [bubble]);
-
-  const onClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * ROOM_SIZE;
-    const y = ((e.clientY - rect.top) / rect.height) * ROOM_SIZE;
-    const b = petBox.current;
-    const pad = 4; // 指で押しやすいように少し広げる
-    if (x >= b.x - pad && x <= b.x + b.w + pad && y >= b.y - pad && y <= b.y + b.h + pad) {
-      onTapPet();
-      return;
-    }
-    const hit = litter.find((l) => x >= l.x - 3 && x <= l.x + 7 && y >= l.y - 3 && y <= l.y + 7);
-    if (hit) onTapLitter(hit.id);
-  };
 
   // 画面幅に収まる最大の整数倍で拡大する
   useEffect(() => {
@@ -75,19 +65,38 @@ export function RoomCanvas({ stage, activity, litter, lightsOff, timezone, bubbl
     return () => ro.disconnect();
   }, []);
 
+  const onClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * ROOM_SIZE;
+    const y = ((e.clientY - rect.top) / rect.height) * ROOM_SIZE;
+    const b = petBox.current;
+    const pad = 4; // 指で押しやすいように少し広げる
+    if (b && x >= b.x - pad && x <= b.x + b.w + pad && y >= b.y - pad && y <= b.y + b.h + pad) {
+      onTapPet();
+      return;
+    }
+    const hit = litter.find((l) => x >= l.x - 3 && x <= l.x + 7 && y >= l.y - 3 && y <= l.y + 7);
+    if (hit) onTapLitter(hit.id);
+  };
+
   useEffect(() => {
     const ctx = canvasRef.current?.getContext("2d");
     if (!ctx) return;
     ctx.imageSmoothingEnabled = false;
 
     const type = activity.type;
-    const home = SPOT_X[activity.spot ?? "floor"] ?? 56;
+    const home = SPOT_X[activity.spot ?? "floor"] ?? 64;
     const roam = ROAM[type];
     const walker = { target: home, nextDecision: 0 };
-    if (petX.current === null) petX.current = home;
     const asleep = type === "sleep" || type === "nap";
-    const onBed = type === "sleep";
-    if (asleep) petX.current = home;
+    const onBed = asleep && activity.spot === "bed";
+    const absent = type === "out" || stage === "departed";
+    if (petX.current === null || asleep) petX.current = home;
+
+    const species = getSpecies(speciesId);
+    const body = bodySprite(stage);
+    const feature = species.feature !== "none" ? FEATURES[species.feature] : null;
+    const senior = stage === "senior" || stage === "final_day";
 
     let raf = 0;
     let last = performance.now();
@@ -96,10 +105,12 @@ export function RoomCanvas({ stage, activity, litter, lightsOff, timezone, bubbl
       const dt = Math.min(0.1, (t - last) / 1000);
       last = t;
       const period = dayPeriod(localHour(serverNow(), timezone));
-      const p = paletteFor(period);
+      const base = paletteFor(period);
+      const p = withSpecies(base, period, species.colors, senior);
 
       ctx.clearRect(0, 0, ROOM_SIZE, ROOM_SIZE);
       drawRoom(ctx, p, period === "night");
+      if (keepsakeItemId) drawSprite(ctx, KEEPSAKE, 76, 43, p);
       for (const l of litter) {
         const sprite = LITTER[l.kind];
         if (sprite) drawSprite(ctx, sprite, l.x, l.y, p);
@@ -109,10 +120,13 @@ export function RoomCanvas({ stage, activity, litter, lightsOff, timezone, bubbl
         const wobble = t % 3200 < 600 ? (Math.floor(t / 150) % 2 ? 1 : -1) : 0;
         const x = 58 + wobble;
         const y = FLOOR_Y + 22 - EGG.rows.length;
-        petBox.current = { x, y, w: 12, h: EGG.rows.length };
         ctx.fillStyle = p.shadow;
         ctx.fillRect(x + 1, y + EGG.rows.length - 1, 10, 2);
         drawSprite(ctx, EGG, x, y, p);
+        petBox.current = { x, y, w: 12, h: EGG.rows.length };
+      } else if (absent) {
+        petBox.current = null;
+        if (type === "out") drawSprite(ctx, NOTE, 58, 104, p); // おでかけ中の書き置き
       } else {
         // 移動
         let x = petX.current!;
@@ -124,7 +138,7 @@ export function RoomCanvas({ stage, activity, litter, lightsOff, timezone, bubbl
         }
         const dx = walker.target - x;
         const walking = !asleep && Math.abs(dx) > 0.5;
-        const speed = type === "play" ? 28 : 10;
+        const speed = type === "play" ? 28 : senior ? 5 : 10;
         if (walking) x += Math.sign(dx) * Math.min(Math.abs(dx), speed * dt);
         petX.current = x;
 
@@ -132,32 +146,45 @@ export function RoomCanvas({ stage, activity, litter, lightsOff, timezone, bubbl
         let bob = 0;
         if (walking) bob = Math.floor(t / 250) % 2 ? -1 : 0;
         if (type === "play" && Math.floor(t / 400) % 3 === 0) bob = -3;
-        if (type === "eat") bob = Math.floor(t / 300) % 2 ? -1 : 0;
+        if (type === "eat" || type === "hobby") bob = Math.floor(t / 300) % 2 ? -1 : 0;
         const eyesClosed = asleep || t % 4000 < 150;
-        const sprite = eyesClosed ? blink(BABY) : BABY;
+        const sprite: Sprite = eyesClosed ? blink(body) : body;
+        const w = sprite.rows[0]!.length;
+        const h = sprite.rows.length;
         const baseY = onBed ? FLOOR_Y + 5 : FLOOR_Y + 22;
-        const px = Math.round(x);
-        const py = baseY - sprite.rows.length + bob + (asleep ? 1 : 0);
+        const px = Math.round(x - w / 2);
+        const py = baseY - h + bob + (asleep ? 1 : 0);
         if (!onBed) {
           ctx.fillStyle = p.shadow;
-          ctx.fillRect(px + 2, FLOOR_Y + 21, 12, 2);
+          ctx.fillRect(px + 2, FLOOR_Y + 21, w - 4, 2);
         }
         drawSprite(ctx, sprite, px, py, p);
-        petBox.current = { x: px, y: py, w: 16, h: sprite.rows.length };
+        if (feature) {
+          const fw = feature.rows[0]!.length;
+          drawSprite(ctx, feature, px + Math.round((w - fw) / 2), py - feature.rows.length + 1, p);
+        }
+        if (senior && !asleep) {
+          const gw = GLASSES.rows[0]!.length;
+          const eyeRow = sprite.rows.findIndex((r) => r.includes("e"));
+          drawSprite(ctx, GLASSES, px + Math.round((w - gw) / 2), py + eyeRow - 1, p);
+        }
+        const top = feature ? py - feature.rows.length + 1 : py;
+        petBox.current = { x: px, y: top, w, h: py + h - top };
         if (asleep) {
           const rise = Math.floor(t / 400) % 6;
-          drawSprite(ctx, ZZZ, px + 14, py - 4 - rise, p);
+          drawSprite(ctx, ZZZ, px + w - 2, py - 4 - rise, p);
         }
       }
+
       if (lightsOff) {
-        // 電気を消した部屋。窓の外の明かりだけ残す
+        // 電気を消した部屋
         ctx.fillStyle = "rgba(24, 22, 60, 0.55)";
         ctx.fillRect(0, 0, ROOM_SIZE, ROOM_SIZE);
       }
 
       const bubbleEl = bubbleRef.current;
-      if (bubbleEl) {
-        const b = petBox.current;
+      const b = petBox.current;
+      if (bubbleEl && b) {
         bubbleEl.style.left = `${((b.x + b.w / 2) / ROOM_SIZE) * 100}%`;
         bubbleEl.style.top = `${(b.y / ROOM_SIZE) * 100}%`;
       }
@@ -165,9 +192,11 @@ export function RoomCanvas({ stage, activity, litter, lightsOff, timezone, bubbl
     };
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [stage, activity.type, activity.spot, litter, lightsOff, timezone]);
+  }, [stage, speciesId, activity.type, activity.spot, litter, lightsOff, keepsakeItemId, timezone]);
 
   const size = ROOM_SIZE * scale;
+  // 最期の日は少し色あせる（仕様書 7.3）
+  const fading = stage === "final_day";
   return (
     <div ref={wrapRef} className="room">
       <div className="room-inner" style={{ width: size, height: size }}>
@@ -175,6 +204,7 @@ export function RoomCanvas({ stage, activity, litter, lightsOff, timezone, bubbl
           ref={canvasRef}
           width={ROOM_SIZE}
           height={ROOM_SIZE}
+          className={fading ? "is-fading" : undefined}
           style={{ width: size, height: size }}
           aria-label="ペットの部屋（ペットをタップで話しかける、ゴミをタップで片付ける）"
           onClick={onClick}

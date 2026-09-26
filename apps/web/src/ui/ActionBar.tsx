@@ -5,10 +5,11 @@ export function ActionBar() {
   const send = useStore((s) => s.send);
   const setSheet = useStore((s) => s.setSheet);
   const egg = game.pet.state.stage === "egg";
+  const away = game.pet.state.activity.type === "out" || game.pet.state.stage === "departed";
   const lightsOff = Boolean(game.room.lightsOff);
 
   const actions = [
-    { id: "feed", icon: "🍙", label: "ごはん", disabled: egg, onClick: () => setSheet("food") },
+    { id: "feed", icon: "🍙", label: "ごはん", disabled: egg || away, onClick: () => setSheet("food") },
     { id: "play", icon: "🎾", label: "あそぶ", disabled: true, title: "ミニゲームは P5 で追加します" },
     {
       id: "clean",

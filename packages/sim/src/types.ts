@@ -35,7 +35,10 @@ export type ActivityType =
   | "play"
   | "window"
   | "eat"
-  | "tidy";
+  | "tidy"
+  | "hobby"
+  | "out"
+  | "departed";
 
 /** 部屋の中のどこにいるか（描画用） */
 export type Spot = "floor" | "bed" | "rug" | "window" | "fridge";
@@ -46,6 +49,7 @@ export interface Activity {
   /** この時刻までは続ける */
   until?: number;
   spot?: Spot;
+  hobbyId?: string;
 }
 
 export interface Equipped {
@@ -71,6 +75,34 @@ export interface PetState {
   cooldowns: Record<string, number>;
   /** 性格の 1 日あたりの変化量の記録（仕様書 6.3） */
   drift: { day: string; used: Partial<Record<keyof Personality, number>> };
+  /** その日の暮らしぶり（寿命の前後に使う。仕様書 7.2） */
+  today: DailyLog;
+  /** 自分で拾った物（趣味の条件・形見に使う） */
+  treasures: string[];
+  /** 親が持っていた趣味（見つけやすい） */
+  inheritedHobbies: string[];
+  /** 旅立ったときの記録 */
+  farewell?: Farewell;
+}
+
+export interface DailyLog {
+  day: string;
+  /** 就寝時刻の範囲内に寝た */
+  sleptOnTime: boolean;
+  /** 夜に起こされた */
+  wokenAtNight: boolean;
+  /** ユーザーがあげた食べ物の味タグ（重複あり） */
+  tags: string[];
+  /** ユーザーと遊んだ（P5 のミニゲーム） */
+  played: boolean;
+}
+
+export interface Farewell {
+  /** 看取られたか */
+  witnessed: boolean;
+  lastWords: string[];
+  /** 旅立ちの演出・置き手紙をユーザーが見たか */
+  seen: boolean;
 }
 
 export interface Pet {
@@ -91,6 +123,8 @@ export interface RoomState {
   litter: { id: string; kind: string; x: number; y: number }[];
   /** 電気を消しているか（仕様書 10.4） */
   lightsOff?: boolean;
+  /** 窓ぎわに置いてある、先代の形見（仕様書 7.4） */
+  keepsakeItemId?: string;
 }
 
 export type Importance = "normal" | "rare" | "major";

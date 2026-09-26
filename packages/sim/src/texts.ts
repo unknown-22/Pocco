@@ -10,6 +10,7 @@ export interface TextContext {
   spot?: string;
   duration?: string;
   food?: string;
+  item?: string;
 }
 
 type Variant = { when?: (c: TextContext) => boolean; texts: string[] };
@@ -51,18 +52,30 @@ const T: Record<string, Variant[]> = {
     { texts: ["散らかったおもちゃを片付けていた。", "部屋のすみを掃除していた。"] },
   ],
   find: [
-    { texts: ["ベッドの下からコインを見つけた。", "ラグの下からボタンを見つけた。", "冷蔵庫の裏からビー玉を見つけた。", "クッションのすきまから鍵のようなものを見つけた。"] },
+    { texts: ["ベッドの下から{item}を見つけた。", "ラグの下から{item}を見つけた。", "冷蔵庫の裏から{item}を見つけた。", "クッションのすきまから{item}を見つけた。"] },
   ],
+  out_start: [
+    { when: (c) => c.state.stage === "senior", texts: ["ゆっくり散歩に出かけた。"] },
+    { texts: ["散歩に出かけた。", "「いってきます」と散歩に出かけた。", "窓から外を見て、ふらっと散歩に出かけた。"] },
+  ],
+  walk_end: [
+    { texts: ["散歩から帰ってきた。{item}を拾ってきた！（{duration}）", "{item}を持って帰ってきた。（{duration}の散歩）"] },
+  ],
+  walk_event: [
+    { texts: ["公園で知らない犬と目が合った。", "川べりで石を投げていた。", "花屋さんの前で立ち止まっていた。", "ねこの集会をのぞいていた。", "坂道を転がるように走った。", "ベンチで日なたぼっこをしていた。"] },
+  ],
+  quiet: [
+    { when: (c) => Boolean(c.item), texts: ["{item}を ながめていた。", "{item}を そっと なでていた。"] },
+    { texts: ["ひだまりで ずっと 目を閉じていた。", "窓の外の雲を ながめていた。"] },
+  ],
+  final_day: [{ texts: ["このごろは、ほとんど眠っている。"] }],
   monologue: [
     { when: (c) => c.state.needs.hunger > 50, texts: ["「おなか すいたなあ」とひとりごと。"] },
     { when: (c) => c.lonely, texts: ["「まだかなあ」とつぶやいていた。"] },
     { texts: ["鼻歌をうたっていた。", "「ふふっ」とひとりで笑っていた。", "「きょうは なんようび？」とつぶやいていた。"] },
   ],
   hatch: [{ texts: ["たまごがかえった！"] }],
-  stage_child: [{ texts: ["こどもになった！"] }],
-  stage_teen: [{ texts: ["ティーンになった！"] }],
-  stage_adult: [{ texts: ["おとなになった！"] }],
-  stage_senior: [{ texts: ["シニアになった。"] }],
+  stage_senior: [{ texts: ["シニアになった。少し白いものがまじってきた。"] }],
 };
 
 const SPOT_LABEL: Record<string, string> = {
@@ -81,5 +94,6 @@ export function pickText(eventId: string, ctx: TextContext, rng: Rng): string {
   return text
     .replace("{spot}", SPOT_LABEL[ctx.spot ?? "floor"] ?? "床の上")
     .replace("{duration}", ctx.duration ?? "")
-    .replace("{food}", ctx.food ?? "何か");
+    .replace("{food}", ctx.food ?? "何か")
+    .replace("{item}", ctx.item ?? "何か");
 }
