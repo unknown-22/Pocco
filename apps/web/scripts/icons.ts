@@ -1,4 +1,4 @@
-// ホーム画面用のアイコン（PNG）を favicon.svg のドット絵から作る。
+// ホーム画面のショートカット用のアイコン（PNG）を favicon.svg のドット絵から作る。
 // favicon は 16×16 のマス目に h/v だけで描いた図形なので、マスの中心が図形の内側かどうかで塗る。
 // まわりに余白を取り（24 マスの中央に 16 マス）、Android の丸などに切り抜かれても欠けないようにする。
 
@@ -12,7 +12,6 @@ const CANVAS = 24;
 /** 作るアイコン（public/ 以下のファイル名 → 一辺のピクセル数） */
 export const ICONS: Record<string, number> = {
   "icon-192.png": 192,
-  "icon-512.png": 512,
   "apple-touch-icon.png": 180,
 };
 
