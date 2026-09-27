@@ -22,8 +22,8 @@ export interface Meta {
   lastInteractedAt: number;
   /** 最後にアプリが開かれていた時刻 */
   lastSeenAt: number;
-  /** 直近の留守の期間（留守中サマリー用） */
-  absence: { from: number; to: number } | null;
+  /** 直近の留守の期間（留守中サマリー用）。read はその留守の日記を読んだか */
+  absence: { from: number; to: number; read: boolean } | null;
   /** 最後におすそわけが届いた日（YYYY-MM-DD） */
   lastGiftDay: string | null;
   /** 次の世代のたまごが現れる時刻（旅立ちの翌朝 6:00） */
@@ -38,6 +38,7 @@ interface MetaRow {
   last_seen_at: number;
   absence_from: number | null;
   absence_to: number | null;
+  absence_read: number;
   last_gift_day: string | null;
   next_egg_at: number | null;
 }
@@ -79,7 +80,7 @@ export function getMeta(db: DB): Meta | null {
     lastSeenAt: row.last_seen_at,
     absence:
       row.absence_from !== null && row.absence_to !== null
-        ? { from: row.absence_from, to: row.absence_to }
+        ? { from: row.absence_from, to: row.absence_to, read: row.absence_read === 1 }
         : null,
     lastGiftDay: row.last_gift_day,
     nextEggAt: row.next_egg_at,
@@ -89,9 +90,9 @@ export function getMeta(db: DB): Meta | null {
 export function saveMeta(db: DB, meta: Meta) {
   db.prepare(
     `INSERT INTO meta (id, timezone, current_pet_id, last_simulated_at, last_interacted_at,
-       last_seen_at, absence_from, absence_to, last_gift_day, next_egg_at)
+       last_seen_at, absence_from, absence_to, absence_read, last_gift_day, next_egg_at)
      VALUES (1, @timezone, @currentPetId, @lastSimulatedAt, @lastInteractedAt,
-       @lastSeenAt, @absenceFrom, @absenceTo, @lastGiftDay, @nextEggAt)
+       @lastSeenAt, @absenceFrom, @absenceTo, @absenceRead, @lastGiftDay, @nextEggAt)
      ON CONFLICT(id) DO UPDATE SET timezone = excluded.timezone,
        current_pet_id = excluded.current_pet_id,
        last_simulated_at = excluded.last_simulated_at,
@@ -99,6 +100,7 @@ export function saveMeta(db: DB, meta: Meta) {
        last_seen_at = excluded.last_seen_at,
        absence_from = excluded.absence_from,
        absence_to = excluded.absence_to,
+       absence_read = excluded.absence_read,
        last_gift_day = excluded.last_gift_day,
        next_egg_at = excluded.next_egg_at`,
   ).run({
@@ -109,6 +111,7 @@ export function saveMeta(db: DB, meta: Meta) {
     lastSeenAt: meta.lastSeenAt,
     absenceFrom: meta.absence?.from ?? null,
     absenceTo: meta.absence?.to ?? null,
+    absenceRead: meta.absence?.read ? 1 : 0,
     lastGiftDay: meta.lastGiftDay,
     nextEggAt: meta.nextEggAt,
   });

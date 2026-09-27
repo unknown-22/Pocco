@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { FOODS } from "@pocco/sim";
 import { openDb } from "../src/db.ts";
+import { getMeta } from "../src/repo.ts";
 import { createApp } from "../src/app.ts";
 import { advance } from "../src/world.ts";
 
@@ -57,6 +58,35 @@ describe("GET /api/state", () => {
     advance(5 * HOUR);
     const s = await getJson(app, "/api/state");
     expect(s.absence).toEqual({ from: first.serverNow, to: s.serverNow });
+  });
+
+  it("前の長い留守は、少しあけて開き直したときには出さない", async () => {
+    const { app, advance } = setup();
+    await app.request("/api/state");
+    advance(7 * HOUR);
+    await app.request("/api/state");
+    // 見続けている間（30 秒ごとに開く）
+    for (let i = 0; i < 70; i++) {
+      advance(30_000);
+      await app.request("/api/state");
+    }
+    expect((await getJson(app, "/api/state")).absence).toBeNull();
+    // 20 分だけ閉じて開き直す
+    advance(20 * 60_000);
+    expect((await getJson(app, "/api/state")).absence).toBeNull();
+  });
+
+  it("留守中の日記を読んだら「○時間ぶり」は出さないが、おかえりの挨拶は残る", async () => {
+    const { app, db, advance } = setup();
+    await app.request("/api/state");
+    advance(7 * HOUR);
+    const s = await getJson(app, "/api/state");
+    expect(s.absence).not.toBeNull();
+    const { entries } = await getJson(app, "/api/timeline");
+    await post(app, "/api/timeline/read", { upToId: Math.max(...entries.map((e: { id: number }) => e.id)) });
+    expect((await getJson(app, "/api/state")).absence).toBeNull();
+    // 話しかけたときの「おかえり」に使うので、記録そのものは残す
+    expect(getMeta(db)!.absence).toEqual({ from: s.absence.from, to: s.absence.to, read: true });
   });
 });
 
