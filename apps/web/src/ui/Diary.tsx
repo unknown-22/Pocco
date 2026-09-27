@@ -4,13 +4,17 @@ import { serverNow, useStore } from "../store.ts";
 import { dayLabel, formatClock, formatDuration } from "../time.ts";
 import { eventIcon } from "./labels.ts";
 
-/** 日記（仕様書 9 章）。開いたときの未読を覚えておき、強調表示してから既読にする。 */
+/**
+ * 日記（仕様書 9 章）。開いたときの未読と留守の期間を覚えておき、強調表示してから既読にする。
+ * 既読にするとサーバーは留守の期間を返さなくなるので、見出しは覚えた方を使う。
+ */
 export function Diary() {
   const game = useStore((s) => s.game)!;
   const { entries, hasMore, loading } = useStore((s) => s.timeline);
   const loadTimeline = useStore((s) => s.loadTimeline);
   const markRead = useStore((s) => s.markRead);
   const [unreadIds, setUnreadIds] = useState<Set<number>>(new Set());
+  const [absence, setAbsence] = useState(game.absence);
 
   // 開いたとき、および新しい日記が増えたときに読み直す
   useEffect(() => {
@@ -21,6 +25,8 @@ export function Diary() {
     const unread = entries.filter((e) => !e.read);
     if (unread.length === 0) return;
     setUnreadIds((prev) => new Set([...prev, ...unread.map((e) => e.id)]));
+    const current = useStore.getState().game?.absence;
+    if (current) setAbsence(current);
     markRead(Math.max(...entries.map((e) => e.id)));
   }, [entries, markRead]);
 
@@ -31,7 +37,7 @@ export function Diary() {
     <section className="page">
       <h2 className="page-title pixel">日記</h2>
       {unreadEntries.length > 0 && (
-        <AbsenceSummary entries={unreadEntries} absence={game.absence} />
+        <AbsenceSummary entries={unreadEntries} absence={absence} />
       )}
       {entries.length === 0 && !loading && (
         <div className="empty">

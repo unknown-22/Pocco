@@ -102,9 +102,12 @@ export function createApp(db: DB, opts: AppOptions = {}) {
     pendingSelfies: pendingSelfies(),
     // 旅立ったあとは、見ていなかった節目は出さない
     pendingCeremony: pet.diedAt === null ? (pet.state.ceremonies[0] ?? null) : null,
-    // 「○時間ぶり」は戻ってきた直後だけ。見続けている間や、少しだけ閉じて開き直したときに
-    // 前の長い留守を出し続けないようにする
-    absence: meta.absence && now - meta.absence.to < ABSENT_AFTER_MS ? meta.absence : null,
+    // 「○時間ぶり」は戻ってきた直後、その留守の日記をまだ読んでいない間だけ。見続けている間や、
+    // 少しだけ閉じて開き直したとき、読んだあとに増えた日記に前の長い留守を出し続けないようにする
+    absence:
+      meta.absence && !meta.absence.read && now - meta.absence.to < ABSENT_AFTER_MS
+        ? { from: meta.absence.from, to: meta.absence.to }
+        : null,
     debug: Boolean(opts.debug),
     ...(reaction ? { reaction } : {}),
   });
@@ -148,7 +151,7 @@ export function createApp(db: DB, opts: AppOptions = {}) {
     const result = db.transaction(() => {
       const { meta } = loaded;
       const absence =
-        now - meta.lastSeenAt > ABSENT_AFTER_MS ? { from: meta.lastSeenAt, to: now } : meta.absence;
+        now - meta.lastSeenAt > ABSENT_AFTER_MS ? { from: meta.lastSeenAt, to: now, read: false } : meta.absence;
       let next = { ...meta, lastSeenAt: now, absence };
       saveMeta(db, next);
       const pet = loaded.pet;
@@ -288,8 +291,13 @@ export function createApp(db: DB, opts: AppOptions = {}) {
   app.post("/api/timeline/read", async (c) => {
     const body = (await c.req.json().catch(() => null)) as { upToId?: unknown } | null;
     if (!body || typeof body.upToId !== "number") return c.json({ error: "invalid_request" }, 400);
-    const { pet } = advance(db, clock());
-    markRead(db, pet.id, body.upToId);
+    const upToId = body.upToId;
+    const { pet, meta } = advance(db, clock());
+    db.transaction(() => {
+      markRead(db, pet.id, upToId);
+      // 留守の記録は「おかえり」の挨拶にも使うので消さずに、読んだ印だけつける
+      if (meta.absence && !meta.absence.read) saveMeta(db, { ...meta, absence: { ...meta.absence, read: true } });
+    })();
     return c.json({ unread: unreadCount(db, pet.id) });
   });
 

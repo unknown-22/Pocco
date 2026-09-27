@@ -98,6 +98,10 @@ const MIGRATIONS: string[] = [
       UNION ALL SELECT 'plant_pot', 'furniture' UNION ALL SELECT 'straw_hat', 'wear'
     ) v WHERE EXISTS (SELECT 1 FROM meta);
   `,
+  // v6: 留守中の日記を読んだか（読んだら「○時間ぶり」を出さない）
+  `
+  ALTER TABLE meta ADD COLUMN absence_read INTEGER NOT NULL DEFAULT 0;
+  `,
 ];
 
 export function openDb(file: string): DB {
