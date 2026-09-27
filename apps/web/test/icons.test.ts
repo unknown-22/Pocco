@@ -4,7 +4,7 @@ import { ICONS, decodePng, pixelsFromSvg, renderIcon } from "../scripts/icons.ts
 
 const pub = new URL("../public/", import.meta.url);
 
-describe("ホーム画面のアイコン", () => {
+describe("ホーム画面のショートカットのアイコン", () => {
   it("置いてある PNG が favicon.svg と同じ絵になっている（違ったら npm run icons -w @pocco/web）", () => {
     const grid = pixelsFromSvg(fs.readFileSync(new URL("favicon.svg", pub), "utf8"));
     for (const [name, size] of Object.entries(ICONS)) {
@@ -22,12 +22,11 @@ describe("ホーム画面のアイコン", () => {
     expect(grid[8][8]).toEqual([0xff, 0xf6, 0xe6, 255]); // 中身
   });
 
-  it("マニフェストのアイコンがすべてある", () => {
-    const manifest = JSON.parse(fs.readFileSync(new URL("manifest.webmanifest", pub), "utf8"));
-    expect(manifest.display).toBe("standalone");
-    for (const icon of manifest.icons) {
-      expect(fs.existsSync(new URL(icon.src.slice(1), pub)), icon.src).toBe(true);
-      expect(ICONS[icon.src.slice(1)]).toBe(Number(icon.sizes.split("x")[0]));
-    }
+  it("index.html から参照するアイコンがすべてあり、PWA のマニフェストは置かない", () => {
+    const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
+    const pngs = [...html.matchAll(/href="\/([^"]+\.png)"/g)].map((m) => m[1]);
+    expect(pngs.sort()).toEqual(Object.keys(ICONS).sort());
+    expect(html).not.toContain('rel="manifest"');
+    expect(fs.existsSync(new URL("manifest.webmanifest", pub))).toBe(false);
   });
 });
