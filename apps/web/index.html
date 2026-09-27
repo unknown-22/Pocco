@@ -7,6 +7,13 @@
     <meta name="color-scheme" content="light dark" />
     <title>Pocco</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <!-- ホーム画面から起動（PWA）。LAN 内の HTTP なので Service Worker は使わず、マニフェストとアイコンだけ -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Pocco" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   </head>
   <body>
     <div id="root"></div>

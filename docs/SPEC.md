@@ -147,7 +147,7 @@ pocco/
 | 更新 | git pull → `npm install` → `npm run build` → サーバー再起動 |
 
 - パス区切りや改行コードの違いで動かなくならないよう、コード内のパスは `path.join` で組み立て、開発は Windows でも Mac/Linux でも動くようにする。
-- HTTPS は使わない（LAN 内の HTTP）。そのため、PWA のインストールや Service Worker など HTTPS が必要なブラウザ機能は、スマホでは使えない場合がある（→ 拡張で検討）。
+- HTTPS は使わない（LAN 内の HTTP）。そのため、PWA のインストールや Service Worker など HTTPS が必要なブラウザ機能は、スマホでは使えない場合がある。PWA はマニフェストとアイコンだけ入れる（11.3）。スマホでは、iOS Safari の「ホーム画面に追加」なら全画面で起動できる。Android Chrome は HTTP だとアプリとしてインストールされず、ショートカットになる場合がある。
   - 画面のコードでは、安全な接続（HTTPS・localhost）でしか使えない API（`crypto.randomUUID`・Web Share API など）に頼らない。操作の ID は `crypto.getRandomValues` で作る（`apps/web/src/id.ts`）。動作確認は localhost だけでなく、LAN の IP アドレスでも開いて行う。
 
 ---
@@ -679,6 +679,7 @@ PC                                 スマホ
 | 旅立ち | 夕方の部屋（その子の模様替え・形見のまま）のベッドで、ひとことの間は目を開けている → 目を閉じて部屋が暗くなる（3.5 秒） → 姿が消えて光の玉になり、弧をえがいて窓の外へ（4 秒） → 「〇〇は N 日 生きました」 |
 | 操作 | 孵化・進化・シニアはタップで最後の場面まで早送りできる。旅立ちはスキップできない（7.3） |
 | ダークモード | 設定の「画面の色」で 自動／ライト／ダーク を選ぶ（自動は端末の `prefers-color-scheme` に追従）。端末ごとの好みなのでサーバーには送らず `localStorage` に覚える（使えなければ自動）。`theme.ts` が `<html data-theme>` と `theme-color` を切り替え、`styles.css` は色をすべて `:root` の変数にして `[data-theme="dark"]` で差し替える。部屋・ミニゲームなどのドット絵、紙の置き手紙、全画面の演出は変えない |
+| PWA | `apps/web/public/manifest.webmanifest`（`display: standalone`・縦向き・背景とテーマ色はライトの画面色）と、iOS 用の `apple-touch-icon`・`apple-mobile-web-app-*` を `index.html` に入れて、ホーム画面から全画面で起動できるようにする。LAN 内の HTTP では Service Worker が使えないうえ、サーバーがないと遊べないので、Service Worker（オフライン用のキャッシュ）は入れない（3.4）。アイコン（192・512〔maskable 兼用〕・180）は `favicon.svg` のドット絵を 24 マスの中央に整数倍で置いた PNG で、`npm run icons -w @pocco/web`（`apps/web/scripts/icons.ts`）で作り直す。favicon とずれていないかはテストで確かめる。戻ってきたときの更新は、もとからある `visibilitychange` での再読み込みにまかせる |
 | 仕組み | 場面は `apps/web/src/render/scenes/`（場面ごとに 1 ファイル）。孵化・進化・シニアは 64×64 を 4 倍、旅立ちは部屋の 128×128 を画面に収まる整数倍で描く |
 
 ---
@@ -771,7 +772,7 @@ interface PetState {
 | **P3 一生** | ライフステージ・進化、趣味、散歩と拾い物、**寿命・最期の日・世代交代・思い出** | 1 世代をまるごと体験できる | ✅ 完了 |
 | **P4 収集** | 着せ替え、部屋カスタム、図鑑、写真 | 集める楽しみ | ✅ 完了 |
 | **P5 遊び** | ミニゲーム 3 種 | 数秒遊べる | ✅ 完了 |
-| **P6 仕上げ** | ドット絵の本番素材、演出、PWA | — | |
+| **P6 仕上げ** | ドット絵の本番素材、演出、PWA | — | ✅ 完了 |
 | 拡張 | LLM 会話、季節イベント、簡易アクセスキー | — | |
 
 ---
