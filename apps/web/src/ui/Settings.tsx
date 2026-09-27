@@ -1,5 +1,12 @@
 import { useState, type FormEvent } from "react";
 import { useStore } from "../store.ts";
+import { applyTheme, loadThemeChoice, saveThemeChoice, type ThemeChoice } from "../theme.ts";
+
+const THEMES: [ThemeChoice, string][] = [
+  ["auto", "自動"],
+  ["light", "ライト"],
+  ["dark", "ダーク"],
+];
 
 export function Settings() {
   const game = useStore((s) => s.game);
@@ -7,6 +14,13 @@ export function Settings() {
   const debugAdvance = useStore((s) => s.debugAdvance);
   const [name, setName] = useState(game?.pet?.name ?? "");
   const [saved, setSaved] = useState(false);
+  const [theme, setTheme] = useState(loadThemeChoice);
+
+  const onTheme = (choice: ThemeChoice) => {
+    setTheme(choice);
+    saveThemeChoice(choice);
+    applyTheme(choice);
+  };
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -27,6 +41,17 @@ export function Settings() {
           {saved ? "保存しました" : "保存"}
         </button>
       </form>
+      <div className="card">
+        <span className="field">画面の色</span>
+        <div className="segmented" role="radiogroup" aria-label="画面の色">
+          {THEMES.map(([value, label]) => (
+            <button key={value} type="button" role="radio" aria-checked={theme === value} className={theme === value ? "is-active" : ""} onClick={() => onTheme(value)}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="muted">「自動」は端末の設定に合わせます。この端末だけに保存されます</div>
+      </div>
       <div className="card muted">
         <div>タイムゾーン: {game?.timezone}</div>
         <div>世代: {game?.pet?.generation}</div>
