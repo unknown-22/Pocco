@@ -102,7 +102,9 @@ export function createApp(db: DB, opts: AppOptions = {}) {
     pendingSelfies: pendingSelfies(),
     // 旅立ったあとは、見ていなかった節目は出さない
     pendingCeremony: pet.diedAt === null ? (pet.state.ceremonies[0] ?? null) : null,
-    absence: meta.absence,
+    // 「○時間ぶり」は戻ってきた直後だけ。見続けている間や、少しだけ閉じて開き直したときに
+    // 前の長い留守を出し続けないようにする
+    absence: meta.absence && now - meta.absence.to < ABSENT_AFTER_MS ? meta.absence : null,
     debug: Boolean(opts.debug),
     ...(reaction ? { reaction } : {}),
   });

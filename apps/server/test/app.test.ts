@@ -58,6 +58,22 @@ describe("GET /api/state", () => {
     const s = await getJson(app, "/api/state");
     expect(s.absence).toEqual({ from: first.serverNow, to: s.serverNow });
   });
+
+  it("前の長い留守は、少しあけて開き直したときには出さない", async () => {
+    const { app, advance } = setup();
+    await app.request("/api/state");
+    advance(7 * HOUR);
+    await app.request("/api/state");
+    // 見続けている間（30 秒ごとに開く）
+    for (let i = 0; i < 70; i++) {
+      advance(30_000);
+      await app.request("/api/state");
+    }
+    expect((await getJson(app, "/api/state")).absence).toBeNull();
+    // 20 分だけ閉じて開き直す
+    advance(20 * 60_000);
+    expect((await getJson(app, "/api/state")).absence).toBeNull();
+  });
 });
 
 describe("タイムライン", () => {
