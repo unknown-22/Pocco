@@ -21,3 +21,4 @@
 
 - `POCCO_DEBUG=1 POCCO_DATA_DIR=<一時フォルダ> npm start` で起動し、`POST /api/debug/advance {"minutes":N}` で早送り。早送りはメモリ上だけなので、再起動すると時計が戻る（一時フォルダを使い捨てる）
 - Playwright（グローバル）で画面を撮って確認できる
+- スマホは LAN の HTTP で開くので、安全な接続でしか使えない API（`crypto.randomUUID` など）は使えない。確認は localhost だけでなく LAN の IP アドレス（起動時に表示）でも行う

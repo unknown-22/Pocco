@@ -147,6 +147,7 @@ pocco/
 
 - パス区切りや改行コードの違いで動かなくならないよう、コード内のパスは `path.join` で組み立て、開発は Windows でも Mac/Linux でも動くようにする。
 - HTTPS は使わない（LAN 内の HTTP）。そのため、PWA のインストールや Service Worker など HTTPS が必要なブラウザ機能は、スマホでは使えない場合がある（→ 拡張で検討）。
+  - 画面のコードでは、安全な接続（HTTPS・localhost）でしか使えない API（`crypto.randomUUID`・Web Share API など）に頼らない。操作の ID は `crypto.getRandomValues` で作る（`apps/web/src/id.ts`）。動作確認は localhost だけでなく、LAN の IP アドレスでも開いて行う。
 
 ---
 

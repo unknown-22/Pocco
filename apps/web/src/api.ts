@@ -1,3 +1,4 @@
+import { newId } from "./id.ts";
 import type { Ceremony, DecorTarget, GameId, Pet, RoomState, Selfie, TimelineEvent, WearSlot } from "@pocco/sim";
 
 export interface InventoryItem {
@@ -105,8 +106,8 @@ const postJson = <T>(path: string, body: unknown) =>
 
 export const api = {
   getState: () => request<GameState>("/api/state"),
-  sendAction: (action: Action) =>
-    postJson<GameState>("/api/actions", { clientActionId: crypto.randomUUID(), action }),
+  // async にして、送る前のエラーも失敗として受け取れるようにする（画面に「通信エラー」を出す）
+  sendAction: async (action: Action) => postJson<GameState>("/api/actions", { clientActionId: newId(), action }),
   getTimeline: (before?: { at: number; id: number }, limit = 50, petId?: string) => {
     const q = new URLSearchParams({ limit: String(limit) });
     if (petId) q.set("petId", petId);
