@@ -101,7 +101,7 @@ export function RoomCanvas({ pet, room, timezone, bubble, mood: moodProp, onTapP
     if (!ctx) return;
     ctx.imageSmoothingEnabled = false;
 
-    setRoomCanvas(canvasRef.current);
+    setRoomCanvas(canvasRef.current, bubbleRef.current);
     const type = activity.type;
     // 家具を使っているときは、その家具の前
     const slotPos = activity.slot ? SLOT_POS[activity.slot] : undefined;
