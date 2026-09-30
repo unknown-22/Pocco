@@ -3,6 +3,7 @@
 たまごっちを現代風にアレンジした、放置型の電子ペット Web アプリ。
 LAN 内のサーバー（Windows ミニ PC を想定）にデータを置き、スマホと PC のブラウザから同じペットにアクセスします。
 
+- バージョンと更新履歴: [docs/VERSIONING.md](docs/VERSIONING.md)（履歴データは `apps/web/src/changelog.json`）
 - 仕様書: [docs/SPEC.md](docs/SPEC.md)（各フェーズの実装メモ・決定事項を含む）
 
 ## できること
