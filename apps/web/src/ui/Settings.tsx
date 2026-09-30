@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useStore } from "../store.ts";
 import { applyTheme, loadThemeChoice, saveThemeChoice, type ThemeChoice } from "../theme.ts";
+import { APP_VERSION } from "../changelog.ts";
+import { ChangelogSheet } from "./ChangelogSheet.tsx";
 
 const THEMES: [ThemeChoice, string][] = [
   ["auto", "自動"],
@@ -13,6 +15,7 @@ export function Settings() {
   const send = useStore((s) => s.send);
   const debugAdvance = useStore((s) => s.debugAdvance);
   const [name, setName] = useState(game?.pet?.name ?? "");
+  const [showChangelog, setShowChangelog] = useState(false);
   const [saved, setSaved] = useState(false);
   const [theme, setTheme] = useState(loadThemeChoice);
   const [timezone, setTimezone] = useState(game?.timezone ?? "Asia/Tokyo");
@@ -122,6 +125,13 @@ export function Settings() {
         </button>
         {settingsSaved && <p role="status">保存しました</p>}
       </form>
+      <div className="card">
+        <div className="app-version">Pocco <span className="muted">v{APP_VERSION}</span></div>
+        <button type="button" className="secondary" aria-haspopup="dialog" onClick={() => setShowChangelog(true)}>
+          更新履歴
+        </button>
+      </div>
+      {showChangelog && <ChangelogSheet onClose={() => setShowChangelog(false)} />}
       <div className="card muted">世代: {game?.pet?.generation}</div>
       {game?.debug && (
         <div className="card">
