@@ -15,6 +15,7 @@ export interface Reaction {
 export interface GameState {
   serverNow: number;
   timezone: string;
+  sleepStartMinutes: number;
   pet: Pet;
   room: RoomState;
   inventory: InventoryItem[];
@@ -64,6 +65,7 @@ export interface TimelineEntry extends TimelineEvent {
 
 export type Action =
   | { type: "rename"; name: string }
+  | { type: "settings"; timezone: string; sleepStartMinutes: number }
   | { type: "feed"; foodId: string }
   | { type: "clean"; litterIds?: string[] }
   | { type: "talk"; idle?: boolean }

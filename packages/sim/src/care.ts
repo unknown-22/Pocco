@@ -13,6 +13,8 @@ import { innateWearTaste } from "./pet.ts";
 
 export interface CareContext {
   timezone: string;
+  /** 基準の就寝時刻（0:00 からの分）。未指定なら 23:00 */
+  sleepStartMinutes?: number;
   /** 直前の留守の長さ（ミリ秒）。おかえりの挨拶に使う */
   awayMs?: number;
   /** 最近の日記（新しい順）。会話のネタに使う */
@@ -162,7 +164,7 @@ export function setLights(world: World, on: boolean, t: number, ctx: CareContext
 
   // 眠いときに電気を消すと、すぐ寝る（寝かしつけ）
   if (!on && !isAsleep(s) && !isAway(s) && s.stage !== "egg" && s.needs.sleepiness >= 15) {
-    const sleepTime = inSleepWindow(localHour(t, ctx.timezone), s.personality);
+    const sleepTime = inSleepWindow(localHour(t, ctx.timezone), s.personality, ctx.sleepStartMinutes);
     s.activity = sleepTime
       ? { type: "sleep", since: t, until: t + HOUR, spot: "bed" }
       : { type: "nap", since: t, until: t + HOUR, spot: "bed" };
@@ -192,7 +194,7 @@ export function talk(world: World, t: number, ctx: CareContext, idle = false): C
   if (isAsleep(s)) {
     if (idle) return { bubble: pick(rng, ["zzz…", "むにゃ…", "すぅ…"]), reaction: "asleep", events: [] };
     const day = dayKey(t, ctx.timezone);
-    const sleepTime = inSleepWindow(localHour(t, ctx.timezone), s.personality);
+    const sleepTime = inSleepWindow(localHour(t, ctx.timezone), s.personality, ctx.sleepStartMinutes);
     const wasType = s.activity.type;
     s.activity = { type: "idle", since: t, until: t + 20 * 60_000, spot: "rug" };
     if (sleepTime) {

@@ -11,7 +11,7 @@ import { FOODS, foodAffinity, type Food } from "./foods.ts";
 import { pickText } from "./texts.ts";
 import { SPECIES, getSpecies, speciesForStage } from "./species.ts";
 import { HOBBIES, MAX_HOBBIES, getHobby } from "./hobbies.ts";
-import { HOUSE_FINDS, getTreasure, pickWalkTreasure } from "./items.ts";
+import { getTreasure, pickHouseTreasure, pickWalkTreasure } from "./items.ts";
 import { depart, emptyDay, keepsakeOf, today } from "./life.ts";
 import { localParts } from "./clock.ts";
 import { FURNITURE_SLOTS, GIFT_WEARABLES, getFurniture, getWearable, wearAffinity } from "./decor.ts";
@@ -44,6 +44,8 @@ export interface SimContext {
   timezone: string;
   /** 最後にユーザーがアプリを見ていた時刻 */
   lastSeenAt: number;
+  /** 基準の就寝時刻（午前 0 時からの分数）。省略時は 23:00 */
+  sleepStartMinutes?: number;
 }
 
 /** 持ち物に加わる物（サーバーが inventory に入れる） */
@@ -291,7 +293,7 @@ function tick(
   }
 
   // --- 今の行動を続けるか ---
-  const sleepTime = inSleepWindow(hour, s.personality);
+  const sleepTime = inSleepWindow(hour, s.personality, ctx.sleepStartMinutes ?? 23 * 60);
   let done: boolean;
   switch (act.type) {
     case "sleep":
@@ -528,7 +530,7 @@ function tick(
         run: () => {
           mark("find");
           drift(s, "curiosity", +1, day);
-          const item = getTreasure(HOUSE_FINDS[Math.floor(rng() * HOUSE_FINDS.length)]!)!;
+          const item = pickHouseTreasure(rng);
           gain(item.id, "treasure");
           log("find", "rare", {}, { item: item.name });
           start("idle", 10, "floor");

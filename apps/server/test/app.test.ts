@@ -513,3 +513,64 @@ describe("P5 ミニゲーム", () => {
     expect(bad.status).toBe(400);
   });
 });
+
+describe("生活の設定", () => {
+  it("タイムゾーンと就寝時刻を保存し、別のリクエストでも返す", async () => {
+    const { app, db } = setup();
+    expect((await getJson(app, "/api/state")).sleepStartMinutes).toBe(1380);
+    const response = await post(app, "/api/actions", { clientActionId: "settings-1", action: { type: "settings", timezone: "Europe/London", sleepStartMinutes: 510 } });
+    expect(response.status).toBe(200);
+    const state = await response.json();
+    expect(state.timezone).toBe("Europe/London");
+    expect(state.sleepStartMinutes).toBe(510);
+    expect(getMeta(db)?.sleepStartMinutes).toBe(510);
+    expect((await getJson(createApp(db), "/api/state")).sleepStartMinutes).toBe(510);
+  });
+
+  it.each([
+    { timezone: "Invalid/Zone", sleepStartMinutes: 1380 },
+    { timezone: "", sleepStartMinutes: 1380 },
+    { timezone: null, sleepStartMinutes: 1380 },
+    { timezone: "UTC", sleepStartMinutes: -1 },
+    { timezone: "UTC", sleepStartMinutes: 1440 },
+    { timezone: "UTC", sleepStartMinutes: 1.5 },
+    { timezone: "UTC", sleepStartMinutes: "23:00" },
+  ])("不正な設定はどちらも変更せず拒否する: %j", async (settings) => {
+    const { app, db } = setup();
+    await app.request("/api/state");
+    const before = getMeta(db);
+    const response = await post(app, "/api/actions", { clientActionId: "bad-settings", action: { type: "settings", ...settings } });
+    expect(response.status).toBe(400);
+    expect(getMeta(db)).toEqual(before);
+  });
+
+  it("同じ操作 ID の再送で後の設定を上書きしない", async () => {
+    const { app } = setup();
+    const action = { type: "settings", timezone: "UTC", sleepStartMinutes: 0 };
+    await post(app, "/api/actions", { clientActionId: "settings-a", action });
+    await post(app, "/api/actions", { clientActionId: "settings-b", action: { ...action, sleepStartMinutes: 600 } });
+    await post(app, "/api/actions", { clientActionId: "settings-a", action });
+    expect((await getJson(app, "/api/state")).sleepStartMinutes).toBe(600);
+  });
+});
+
+it("v6 の保存データに既定の就寝時刻を追加する", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pocco-migration-"));
+  const file = path.join(dir, "pocco.db");
+  let db = openDb(file);
+  const original = await getJson(createApp(db), "/api/state");
+  db.exec("ALTER TABLE meta DROP COLUMN sleep_start_minutes");
+  db.pragma("user_version = 6");
+  db.close();
+  db = openDb(file);
+  try {
+    const migrated = await getJson(createApp(db), "/api/state");
+    expect(migrated.sleepStartMinutes).toBe(1380);
+    expect(migrated.pet.id).toBe(original.pet.id);
+    expect(migrated.timezone).toBe(original.timezone);
+    expect(db.pragma("user_version", { simple: true })).toBe(7);
+  } finally {
+    db.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
