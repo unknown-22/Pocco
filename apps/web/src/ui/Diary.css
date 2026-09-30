@@ -1,0 +1,13 @@
+.diary-generation { margin-bottom: 18px; }
+.diary-generation select {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+}
+.diary-generation select:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+.diary-error { margin-bottom: 16px; }

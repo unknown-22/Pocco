@@ -1,48 +1,94 @@
-import { useEffect, useMemo, useState } from "react";
-import type { TimelineEntry } from "../api.ts";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useStore as useTimelineStore } from "zustand";
+import { api, type MemorialPet, type TimelineEntry } from "../api.ts";
 import { serverNow, useStore } from "../store.ts";
 import { dayLabel, formatClock, formatDuration } from "../time.ts";
 import { eventIcon } from "./labels.ts";
+import { createDiaryTimeline } from "./diaryTimeline.ts";
+import "./Diary.css";
 
-/**
- * 日記（仕様書 9 章）。開いたときの未読と留守の期間を覚えておき、強調表示してから既読にする。
- * 既読にするとサーバーは留守の期間を返さなくなるので、見出しは覚えた方を使う。
- */
+/** 日記タブから、今の子と歴代の子の日記を切り替える。 */
 export function Diary() {
+  const pet = useStore((s) => s.game!.pet);
+  const [pets, setPets] = useState<MemorialPet[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [retry, setRetry] = useState(0);
+  const petId = selectedId ?? pet.id;
+
+  useEffect(() => {
+    let active = true;
+    setFailed(false);
+    api.getMemorial().then(
+      (result) => { if (active) setPets(result.pets); },
+      () => { if (active) setFailed(true); },
+    );
+    return () => { active = false; };
+  }, [pet.id, retry]);
+
+  return (
+    <section className="page">
+      <h2 className="page-title pixel">日記</h2>
+      <label className="diary-generation field">
+        <span>読む世代</span>
+        <select value={petId} onChange={(event) => setSelectedId(event.target.value === pet.id ? null : event.target.value)}>
+          <option value={pet.id}>{pet.generation}代目・{pet.name}（今の子）</option>
+          {pets.filter((p) => p.id !== pet.id).sort((a, b) => b.generation - a.generation).map((p) => (
+            <option key={p.id} value={p.id}>{p.generation}代目・{p.name}</option>
+          ))}
+        </select>
+      </label>
+      {failed && (
+        <div role="alert" className="diary-error">
+          <p className="muted">世代の一覧を読み込めませんでした</p>
+          <button className="secondary" onClick={() => setRetry((n) => n + 1)}>もう一度読み込む</button>
+        </div>
+      )}
+      <DiaryEntries key={petId} petId={petId} isCurrent={petId === pet.id} />
+    </section>
+  );
+}
+
+/** 世代を切り替えると一覧・カーソル・未読の強調もまとめて切り替わる。 */
+function DiaryEntries({ petId, isCurrent }: { petId: string; isCurrent: boolean }) {
   const game = useStore((s) => s.game)!;
-  const { entries, hasMore, loading } = useStore((s) => s.timeline);
-  const loadTimeline = useStore((s) => s.loadTimeline);
+  const [timeline] = useState(() => createDiaryTimeline(petId));
+  const { entries, hasMore, loading, error, load, retry } = useTimelineStore(timeline);
   const markRead = useStore((s) => s.markRead);
   const [unreadIds, setUnreadIds] = useState<Set<number>>(new Set());
   const [absence, setAbsence] = useState(game.absence);
+  const previousUnread = useRef(game.unread);
 
-  // 開いたとき、および新しい日記が増えたときに読み直す
+  useEffect(() => { void load(); }, [load]);
+
+  // 新着だけ読み直す。既読にした通知では、読み進めたページを消さない。
   useEffect(() => {
-    loadTimeline();
-  }, [loadTimeline, game.unread]);
+    if (isCurrent && game.unread > previousUnread.current) void load();
+    previousUnread.current = game.unread;
+  }, [load, game.unread, isCurrent]);
 
   useEffect(() => {
+    if (!isCurrent) return;
     const unread = entries.filter((e) => !e.read);
     if (unread.length === 0) return;
     setUnreadIds((prev) => new Set([...prev, ...unread.map((e) => e.id)]));
     const current = useStore.getState().game?.absence;
     if (current) setAbsence(current);
     markRead(Math.max(...entries.map((e) => e.id)));
-  }, [entries, markRead]);
+  }, [entries, markRead, isCurrent]);
 
   const unreadEntries = entries.filter((e) => unreadIds.has(e.id));
   const groups = useMemo(() => groupByDay(entries, game.timezone), [entries, game.timezone]);
 
   return (
-    <section className="page">
-      <h2 className="page-title pixel">日記</h2>
-      {unreadEntries.length > 0 && (
+    <div aria-busy={loading}>
+      {isCurrent && unreadEntries.length > 0 && (
         <AbsenceSummary entries={unreadEntries} absence={absence} />
       )}
-      {entries.length === 0 && !loading && (
+      {entries.length === 0 && !loading && !error && (
         <div className="empty">
           <p className="pixel">まだ なにも かかれていない</p>
-          <p className="muted">しばらくすると、ここに毎日のできごとが書かれていきます</p>
+          <p className="muted">{isCurrent ? "しばらくすると、ここに毎日のできごとが書かれていきます" : "この世代の日記はありません"}</p>
         </div>
       )}
       {groups.map(([day, items]) => (
@@ -56,7 +102,7 @@ export function Diary() {
                   "diary-entry",
                   `is-${e.importance}`,
                   e.kind === "user" ? "is-user" : "",
-                  unreadIds.has(e.id) ? "is-unread" : "",
+                  isCurrent && unreadIds.has(e.id) ? "is-unread" : "",
                 ].join(" ")}
               >
                 <time className="diary-time pixel">
@@ -70,12 +116,21 @@ export function Diary() {
           </ol>
         </div>
       ))}
-      {hasMore && (
-        <button className="secondary" disabled={loading} onClick={() => loadTimeline(true)}>
+      {loading && <p className="muted" role="status">よみこみちゅう…</p>}
+      {error && (
+        <div role="alert" className="diary-error">
+          <p className="muted">{error}</p>
+          <button className="secondary" disabled={loading} onClick={() => retry()}>
+            もう一度読み込む
+          </button>
+        </div>
+      )}
+      {hasMore && !error && (
+        <button className="secondary" disabled={loading} onClick={() => load(true)}>
           もっと前を読む
         </button>
       )}
-    </section>
+    </div>
   );
 }
 

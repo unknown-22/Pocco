@@ -102,6 +102,8 @@ const MIGRATIONS: string[] = [
   `
   ALTER TABLE meta ADD COLUMN absence_read INTEGER NOT NULL DEFAULT 0;
   `,
+  // v7: 端末間・世代間で共有する就寝時刻
+  `ALTER TABLE meta ADD COLUMN sleep_start_minutes INTEGER NOT NULL DEFAULT 1380;`,
 ];
 
 export function openDb(file: string): DB {

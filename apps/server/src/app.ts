@@ -71,6 +71,7 @@ const MAX_PHOTO_BYTES = 4 * 1024 * 1024;
 
 export type Action =
   | { type: "rename"; name: string }
+  | { type: "settings"; timezone: string; sleepStartMinutes: number }
   | { type: "feed"; foodId: string }
   | { type: "clean"; litterIds?: string[] }
   | { type: "talk"; idle?: boolean }
@@ -94,6 +95,7 @@ export function createApp(db: DB, opts: AppOptions = {}) {
   const view = (now: number, { meta, pet, room }: Loaded, reaction?: Pick<CareResult, "bubble" | "reaction">) => ({
     serverNow: now,
     timezone: meta.timezone,
+    sleepStartMinutes: meta.sleepStartMinutes,
     pet,
     room,
     inventory: getInventory(db),
@@ -323,6 +325,7 @@ export function createApp(db: DB, opts: AppOptions = {}) {
         meta.absence && now - meta.absence.to < GREETING_WINDOW_MS ? meta.absence.to - meta.absence.from : 0;
       const ctx: CareContext = {
         timezone: meta.timezone,
+        sleepStartMinutes: meta.sleepStartMinutes,
         awayMs: recentAbsence,
         recent: listTimeline(db, pet.id, { limit: 10 }),
         memories:
@@ -330,6 +333,24 @@ export function createApp(db: DB, opts: AppOptions = {}) {
             ? listHighlights(db, pet.id, 30).map((e) => `${e.text.replace(/[。！]$/, "")}…なつかしいね`)
             : undefined,
       };
+      if (action.type === "settings") {
+        if (typeof action.timezone !== "string" || action.timezone.length > 100 || !action.timezone.trim()) {
+          throw new BadRequest("invalid_timezone");
+        }
+        let timezone: string;
+        try {
+          timezone = new Intl.DateTimeFormat("en", { timeZone: action.timezone.trim() }).resolvedOptions().timeZone;
+        } catch {
+          throw new BadRequest("invalid_timezone");
+        }
+        if (!Number.isInteger(action.sleepStartMinutes) || action.sleepStartMinutes < 0 || action.sleepStartMinutes >= 1440) {
+          throw new BadRequest("invalid_sleep_time");
+        }
+        // 変更前の設定で現在まで計算済み。新しい設定は次の tick から使う。
+        // 既に決まった次世代の誕生時刻は動かさない。
+        saveMeta(db, { ...meta, timezone, sleepStartMinutes: action.sleepStartMinutes, lastSeenAt: now });
+        return undefined;
+      }
       const result = runAction(action, world, now, ctx);
 
       savePet(db, world.pet);

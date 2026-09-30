@@ -16,13 +16,14 @@ export function drift(state: PetState, axis: keyof Personality, delta: number, d
 }
 
 /** 就寝・起床時刻。夜型ほど遅く、朝型ほど早い（±2 時間）。 */
-export function sleepSchedule(p: Personality) {
+export function sleepSchedule(p: Personality, sleepStartMinutes = 23 * 60) {
   const shift = (p.chronotype / 100) * 2;
-  return { bedtime: 23 + shift, wake: 7 + shift };
+  const bedtime = ((sleepStartMinutes / 60 + shift) % 24 + 24) % 24;
+  return { bedtime, wake: (bedtime + 8) % 24 };
 }
 
-export function inSleepWindow(hour: number, p: Personality): boolean {
-  const { bedtime, wake } = sleepSchedule(p);
+export function inSleepWindow(hour: number, p: Personality, sleepStartMinutes = 23 * 60): boolean {
+  const { bedtime, wake } = sleepSchedule(p, sleepStartMinutes);
   const len = (wake - bedtime + 24) % 24;
   return (hour - bedtime + 24) % 24 < len;
 }

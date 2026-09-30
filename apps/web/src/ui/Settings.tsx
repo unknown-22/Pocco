@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useStore } from "../store.ts";
 import { applyTheme, loadThemeChoice, saveThemeChoice, type ThemeChoice } from "../theme.ts";
 
@@ -15,6 +15,56 @@ export function Settings() {
   const [name, setName] = useState(game?.pet?.name ?? "");
   const [saved, setSaved] = useState(false);
   const [theme, setTheme] = useState(loadThemeChoice);
+  const [timezone, setTimezone] = useState(game?.timezone ?? "Asia/Tokyo");
+  const timeValue = (minutes: number) => `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+  const [bedtime, setBedtime] = useState(timeValue(game?.sleepStartMinutes ?? 1380));
+  const [settingsError, setSettingsError] = useState("");
+  const [settingsSaved, setSettingsSaved] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const submittingSettings = useRef(false);
+  const [settingsDirty, setSettingsDirty] = useState(false);
+  useEffect(() => {
+    if (game && !settingsDirty) {
+      setTimezone(game.timezone);
+      setBedtime(timeValue(game.sleepStartMinutes));
+    }
+  }, [game?.timezone, game?.sleepStartMinutes, settingsDirty]);
+
+  const onSettingsSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (submittingSettings.current) return;
+    setSettingsError("");
+    setSettingsSaved(false);
+    if (!/^\d{2}:\d{2}$/.test(bedtime)) {
+      setSettingsError("就寝時刻を入力してください");
+      return;
+    }
+    const [hours, minutes] = bedtime.split(":").map(Number);
+    if (hours! > 23 || minutes! > 59) {
+      setSettingsError("就寝時刻を確認してください");
+      return;
+    }
+    try {
+      if (!timezone.trim()) throw new Error();
+      new Intl.DateTimeFormat("ja", { timeZone: timezone.trim() });
+    } catch {
+      setSettingsError("タイムゾーンを確認してください（例: Asia/Tokyo）");
+      return;
+    }
+    submittingSettings.current = true;
+    setSavingSettings(true);
+    const result = await send({ type: "settings", timezone: timezone.trim(), sleepStartMinutes: hours! * 60 + minutes! });
+    submittingSettings.current = false;
+    setSavingSettings(false);
+    if (result) {
+      setTimezone(result.timezone);
+      setBedtime(timeValue(result.sleepStartMinutes));
+      setSettingsDirty(false);
+      setSettingsSaved(true);
+    } else {
+      setSettingsError("保存できませんでした。入力内容を確認して、もう一度お試しください");
+    }
+  };
 
   const onTheme = (choice: ThemeChoice) => {
     setTheme(choice);
@@ -24,7 +74,8 @@ export function Settings() {
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    await send({ type: "rename", name });
+    const result = await send({ type: "rename", name });
+    if (!result) return;
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
   };
@@ -52,10 +103,26 @@ export function Settings() {
         </div>
         <div className="muted">「自動」は端末の設定に合わせます。この端末だけに保存されます</div>
       </div>
-      <div className="card muted">
-        <div>タイムゾーン: {game?.timezone}</div>
-        <div>世代: {game?.pet?.generation}</div>
-      </div>
+      <form className="card" onSubmit={onSettingsSubmit}>
+        <label className="field">
+          <span>タイムゾーン</span>
+          <input value={timezone} maxLength={100} list="timezones" required disabled={savingSettings} onChange={(e) => { setTimezone(e.target.value); setSettingsDirty(true); setSettingsSaved(false); }} />
+          <datalist id="timezones">
+            {["Asia/Tokyo", "Asia/Seoul", "Asia/Shanghai", "Asia/Singapore", "Europe/London", "Europe/Paris", "America/New_York", "America/Los_Angeles", "Pacific/Honolulu", "Australia/Sydney", "UTC"].map((zone) => <option key={zone} value={zone} />)}
+          </datalist>
+        </label>
+        <label className="field">
+          <span>就寝時刻</span>
+          <input type="time" value={bedtime} required disabled={savingSettings} onChange={(e) => { setBedtime(e.target.value); setSettingsDirty(true); setSettingsSaved(false); }} />
+        </label>
+        <p className="muted">設定はすべての端末・世代で共有されます。睡眠は約 8 時間で、性格により前後 2 時間ずれます。変更はこれからの生活に反映されます。</p>
+        {settingsError && <p role="alert">{settingsError}</p>}
+        <button className="primary" disabled={savingSettings || !settingsDirty || !timezone.trim() || !bedtime}>
+          {savingSettings ? "保存中…" : "生活の設定を保存"}
+        </button>
+        {settingsSaved && <p role="status">保存しました</p>}
+      </form>
+      <div className="card muted">世代: {game?.pet?.generation}</div>
       {game?.debug && (
         <div className="card">
           <div className="pixel">🛠 デバッグ: 時間を進める</div>

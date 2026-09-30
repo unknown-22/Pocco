@@ -17,6 +17,7 @@ import type { DB } from "./db.ts";
 
 export interface Meta {
   timezone: string;
+  sleepStartMinutes: number;
   currentPetId: string | null;
   lastSimulatedAt: number;
   lastInteractedAt: number;
@@ -32,6 +33,7 @@ export interface Meta {
 
 interface MetaRow {
   timezone: string;
+  sleep_start_minutes: number;
   current_pet_id: string | null;
   last_simulated_at: number;
   last_interacted_at: number;
@@ -74,6 +76,7 @@ export function getMeta(db: DB): Meta | null {
   if (!row) return null;
   return {
     timezone: row.timezone,
+    sleepStartMinutes: row.sleep_start_minutes,
     currentPetId: row.current_pet_id,
     lastSimulatedAt: row.last_simulated_at,
     lastInteractedAt: row.last_interacted_at,
@@ -89,11 +92,12 @@ export function getMeta(db: DB): Meta | null {
 
 export function saveMeta(db: DB, meta: Meta) {
   db.prepare(
-    `INSERT INTO meta (id, timezone, current_pet_id, last_simulated_at, last_interacted_at,
+    `INSERT INTO meta (id, timezone, sleep_start_minutes, current_pet_id, last_simulated_at, last_interacted_at,
        last_seen_at, absence_from, absence_to, absence_read, last_gift_day, next_egg_at)
-     VALUES (1, @timezone, @currentPetId, @lastSimulatedAt, @lastInteractedAt,
+     VALUES (1, @timezone, @sleepStartMinutes, @currentPetId, @lastSimulatedAt, @lastInteractedAt,
        @lastSeenAt, @absenceFrom, @absenceTo, @absenceRead, @lastGiftDay, @nextEggAt)
      ON CONFLICT(id) DO UPDATE SET timezone = excluded.timezone,
+       sleep_start_minutes = excluded.sleep_start_minutes,
        current_pet_id = excluded.current_pet_id,
        last_simulated_at = excluded.last_simulated_at,
        last_interacted_at = excluded.last_interacted_at,
@@ -105,6 +109,7 @@ export function saveMeta(db: DB, meta: Meta) {
        next_egg_at = excluded.next_egg_at`,
   ).run({
     timezone: meta.timezone,
+    sleepStartMinutes: meta.sleepStartMinutes,
     currentPetId: meta.currentPetId,
     lastSimulatedAt: meta.lastSimulatedAt,
     lastInteractedAt: meta.lastInteractedAt,
@@ -161,6 +166,7 @@ export function ensureInitialized(db: DB, now: number): Meta {
   const pet = createPet({ id: randomUUID(), name: "ポッコ", now });
   const meta: Meta = {
     timezone: "Asia/Tokyo",
+    sleepStartMinutes: 23 * 60,
     currentPetId: pet.id,
     lastSimulatedAt: now,
     lastInteractedAt: now,

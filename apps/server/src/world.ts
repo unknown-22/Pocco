@@ -58,6 +58,7 @@ export function advance(db: DB, now: number): Loaded {
     for (;;) {
       const r = simulate({ pet, room, lastSimulatedAt: meta.lastSimulatedAt }, now, {
         timezone: meta.timezone,
+        sleepStartMinutes: meta.sleepStartMinutes,
         lastSeenAt: meta.lastSeenAt,
       });
       if (r.world.lastSimulatedAt !== meta.lastSimulatedAt) {
